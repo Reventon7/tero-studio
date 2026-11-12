@@ -1,38 +1,50 @@
-const WIDTH = 1600;
-const HEIGHT = 900;
 const FRAME_COUNT = 216;
 const OPENING_FRAME = 18;
 const FRAME_RATE = 24;
 const FRAMES_PER_SHEET = 4;
 const LAST_SHEET = Math.ceil(FRAME_COUNT / FRAMES_PER_SHEET) - 1;
-const OPENING_SHEETS = Array.from(
-  { length: Math.floor(OPENING_FRAME / FRAMES_PER_SHEET) + 1 },
-  (_, index) => index
-);
+const DECODE_LIMIT = 2;
+const CACHE_LIMIT = 6;
+const sheetAt = frame => Math.floor(Math.round(frame) / FRAMES_PER_SHEET);
+const OPENING_SHEETS = Array.from({ length: sheetAt(OPENING_FRAME) + 1 }, (_, index) => index);
 
 export function createHeroFilm(canvas, ambient, motion) {
+  const compact = matchMedia('(max-width: 760px)').matches;
+  const width = compact ? 960 : 1440;
+  const height = compact ? 540 : 810;
+  const prefix = compact ? 'compact' : 'frame';
+  canvas.width = width;
+  canvas.height = height;
   const context = canvas.getContext('2d', { alpha: false });
   if (!context) return { setProgress() {} };
+  const ambientLayout = matchMedia('(max-aspect-ratio: 8/5), (min-aspect-ratio: 21/9)');
   const ambientContext = ambient.getContext('2d', { alpha: false });
 
   const downloads = new Map();
-  const sheets = new Map();
+  const decoded = new Map();
+  const decoding = new Set();
+  const failures = new Map();
+  let wanted = [];
   let target = OPENING_FRAME;
-  let position = 0;
+  let position = motion.matches ? OPENING_FRAME : 0;
   let drawn = -1;
   let request = 0;
   let lastTime = 0;
   let opening = !motion.matches;
   let openingStart;
+  let direction = 1;
 
   function download(index) {
     if (!downloads.has(index)) {
-      const filename = `sheet-${String(index).padStart(2, '0')}.webp`;
-      const response = fetch(new URL(`./assets/hero-film/${filename}`, import.meta.url))
-        .then(result => {
-          if (!result.ok) throw new Error(`Hero frame sheet ${index} could not load`);
-          return result.blob();
-        });
+      const filename = prefix + '-' + String(index).padStart(2, '0') + '.webp';
+      const url = new URL('./assets/hero-film/' + filename, import.meta.url);
+      const response = fetch(url).then(result => {
+        if (!result.ok) throw new Error('Hero frame sheet unavailable');
+        return result.blob();
+      }).catch(error => {
+        downloads.delete(index);
+        throw error;
+      });
       downloads.set(index, response);
     }
     return downloads.get(index);
@@ -40,7 +52,7 @@ export function createHeroFilm(canvas, ambient, motion) {
 
   async function decode(blob) {
     if (typeof createImageBitmap === 'function') {
-      try { return await createImageBitmap(blob); } catch { /* Try the browser image decoder. */ }
+      try { return await createImageBitmap(blob); } catch { /* Use the image decoder. */ }
     }
     const image = new Image();
     const url = URL.createObjectURL(blob);
@@ -53,50 +65,68 @@ export function createHeroFilm(canvas, ambient, motion) {
     }
   }
 
-  function loadSheet(index) {
-    if (sheets.has(index)) return;
-    const entry = { image: null };
-    sheets.set(index, entry);
-    download(index).then(decode).then(image => {
-      if (sheets.get(index) !== entry) {
-        image.close?.();
-        return;
-      }
-      entry.image = image;
-      schedule();
-    }).catch(() => {
-      downloads.delete(index);
-      if (sheets.get(index) === entry) {
-        entry.failed = true;
-        schedule();
-      }
-    });
+  function trimCache() {
+    for (const [index, image] of decoded) {
+      if (decoded.size <= CACHE_LIMIT) return;
+      if (wanted.includes(index)) continue;
+      image.close?.();
+      decoded.delete(index);
+    }
   }
 
-  function draw(frame) {
-    const sheet = sheets.get(Math.floor(frame / FRAMES_PER_SHEET));
-    if (frame === drawn || !sheet?.image) return;
+  function queueSheets(indices, ahead = []) {
+    wanted = [...new Set(indices)].filter(index => index >= 0 && index <= LAST_SHEET);
+    const now = performance.now();
+    for (const index of wanted) {
+      if (decoding.size >= DECODE_LIMIT) break;
+      if (decoded.has(index) || decoding.has(index) || (failures.get(index) ?? 0) > now) continue;
+
+      decoding.add(index);
+      download(index).then(decode).then(image => {
+        decoded.set(index, image);
+        failures.delete(index);
+        trimCache();
+      }).catch(() => {
+        downloads.delete(index);
+        failures.set(index, performance.now() + 1000);
+      }).finally(() => {
+        decoding.delete(index);
+        schedule();
+      });
+    }
+    for (const index of ahead) {
+      if (index < 0 || index > LAST_SHEET || downloads.has(index) || (failures.get(index) ?? 0) > now) continue;
+      download(index).catch(() => failures.set(index, performance.now() + 1000));
+    }
+  }
+
+  function draw(frame, force = false) {
+    const index = sheetAt(frame);
+    const image = decoded.get(index);
+    if (!image || (frame === drawn && !force)) return;
     const tile = frame % FRAMES_PER_SHEET;
-    context.drawImage(sheet.image, tile % 2 * WIDTH, Math.floor(tile / 2) * HEIGHT,
-      WIDTH, HEIGHT, 0, 0, WIDTH, HEIGHT);
-    if (ambientContext) {
-      ambientContext.drawImage(canvas, 0, 0, ambient.width, ambient.height);
+    const x = tile % 2 * width;
+    const y = Math.floor(tile / 2) * height;
+    context.drawImage(image, x, y, width, height, 0, 0, width, height);
+    if (ambientContext && ambientLayout.matches) {
+      ambientContext.drawImage(image, x, y, width, height, 0, 0, ambient.width, ambient.height);
       ambient.classList.add('ready');
     }
+    if (drawn < 0) canvas.classList.add('ready');
     canvas.dataset.frame = String(frame);
-    canvas.classList.add('ready');
     drawn = frame;
+    decoded.delete(index);
+    decoded.set(index, image);
   }
 
   function render(now) {
     request = 0;
     if (opening) {
-      OPENING_SHEETS.forEach(loadSheet);
-      const entries = OPENING_SHEETS.map(index => sheets.get(index));
-      if (entries.some(entry => entry.failed)) {
+      queueSheets(OPENING_SHEETS, [...OPENING_SHEETS, 5, 6]);
+      if (OPENING_SHEETS.some(index => failures.has(index))) {
         opening = false;
       } else {
-        if (entries.some(entry => !entry.image)) return;
+        if (!OPENING_SHEETS.every(index => decoded.has(index))) return;
         openingStart ??= now;
         position = Math.min(OPENING_FRAME, Math.floor((now - openingStart) * FRAME_RATE / 1000));
         draw(position);
@@ -105,30 +135,22 @@ export function createHeroFilm(canvas, ambient, motion) {
         return;
       }
     }
-    const elapsed = lastTime ? Math.min(now - lastTime, 40) : 16.7;
+
+    const elapsed = lastTime ? Math.min(now - lastTime, 50) : 16.7;
     lastTime = now;
     const distance = target - position;
-    position = motion.matches || Math.abs(distance) < .35
+    position = motion.matches || Math.abs(distance) < .3
       ? target
-      : position + distance * (1 - Math.exp(-elapsed / 40));
+      : position + distance * (1 - Math.exp(-elapsed / 85));
 
     const frame = Math.round(position);
-    const sheetIndex = Math.floor(frame / FRAMES_PER_SHEET);
-    const targetSheet = Math.floor(Math.round(target) / FRAMES_PER_SHEET);
-    const wanted = new Set([sheetIndex, targetSheet]);
-    if (!motion.matches) {
-      const direction = Math.sign(distance) || 1;
-      for (const offset of [direction, -direction, direction * 2]) {
-        const neighbor = sheetIndex + offset;
-        if (neighbor >= 0 && neighbor <= LAST_SHEET) wanted.add(neighbor);
-      }
-    }
-    for (const [index, entry] of sheets) {
-      if (wanted.has(index)) continue;
-      entry.image?.close?.();
-      sheets.delete(index);
-    }
-    for (const index of wanted) loadSheet(index);
+    const current = sheetAt(frame);
+    const destination = sheetAt(target);
+    const nearby = [current, current + direction, destination, current - direction,
+      current + direction * 2, destination + direction];
+    const ahead = [current + direction * 3, current + direction * 4,
+      current + direction * 5, destination, destination + direction, current - direction * 2];
+    queueSheets(motion.matches ? [current] : nearby, motion.matches ? [] : ahead);
 
     draw(frame);
     if (position !== target) schedule();
@@ -139,11 +161,16 @@ export function createHeroFilm(canvas, ambient, motion) {
     if (!request) request = requestAnimationFrame(render);
   }
 
+  ambientLayout.addEventListener('change', () => {
+    if (drawn >= 0) draw(drawn, true);
+  });
+
   return {
     setProgress(progress) {
       if (progress > 0 || motion.matches) opening = false;
       const next = OPENING_FRAME + progress * (FRAME_COUNT - 1 - OPENING_FRAME);
-      if (next === target && drawn >= 0) return;
+      if (next !== target) direction = Math.sign(next - target);
+      else if (drawn >= 0 && !opening) return;
       target = next;
       schedule();
     }

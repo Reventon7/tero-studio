@@ -40,6 +40,9 @@ $('.menu-toggle').addEventListener('click',()=>{opener=document.activeElement;me
 
 const story = $('#experience');
 const stage = story.querySelector('.stage');
+const header = $('.site-header');
+const pageProgress = $('.page-progress');
+const lightSections = $$('#collection,#frames,#seating,.questions');
 const finishAt = .92;
 const heroFilm = createHeroFilm($('#hero-film'), $('#hero-ambient'), motion);
 const scrollRange = () => Math.max(1, story.offsetHeight - stage.offsetHeight);
@@ -47,17 +50,18 @@ const scrollRange = () => Math.max(1, story.offsetHeight - stage.offsetHeight);
 let scrollPending = false;
 function scrollState() {
   scrollPending = false;
-  const header = $('.site-header');
-  header.classList.toggle('scrolled', scrollY > 60);
-  header.classList.toggle('over-film', scrollY < story.offsetTop + story.offsetHeight - header.offsetHeight);
-  const lightSurface = $$('#collection,#frames,#seating,.questions').some(section => {
+  const y = scrollY;
+  const overFilm = y < story.offsetTop + story.offsetHeight - header.offsetHeight;
+  const lightSurface = !overFilm && lightSections.some(section => {
     const rect = section.getBoundingClientRect();
     return rect.top < 76 && rect.bottom > 76;
   });
-  header.classList.toggle('light-header', lightSurface);
   const total = document.documentElement.scrollHeight - innerHeight;
-  $('.page-progress').style.transform = `scaleX(${total > 0 ? scrollY / total : 0})`;
-  const progress = Math.max(0, Math.min(1, (scrollY - story.offsetTop) / (scrollRange() * finishAt)));
+  const progress = Math.max(0, Math.min(1, (y - story.offsetTop) / (scrollRange() * finishAt)));
+  header.classList.toggle('scrolled', y > 60);
+  header.classList.toggle('over-film', overFilm);
+  header.classList.toggle('light-header', lightSurface);
+  pageProgress.style.transform = `scaleX(${total > 0 ? y / total : 0})`;
   const still = progress < .22 ? 0 : progress < .46 ? .34 : .88;
   heroFilm.setProgress(motion.matches ? still : progress);
 }
