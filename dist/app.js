@@ -97,11 +97,25 @@ $('#chair-motion').addEventListener('click',()=>{if(!chairScene)return;chairScen
 const chairObserver=new IntersectionObserver(entries=>{if(!entries.some(e=>e.isIntersecting))return;chairObserver.disconnect();import('./chair-scene.js').then(async({createChairScene})=>{chairScene=await createChairScene($('#chair-scene'));chooseChairView(chairView)}).catch(error=>{console.error('TERO chair unavailable:',error);$('#chair-scene .chair-loading').textContent='3D unavailable on this device. Explore the catalog below.';document.querySelectorAll('[data-chair-view],#chair-motion,#chair-explore').forEach(b=>b.disabled=true)})},{rootMargin:'500px'});chairObserver.observe($('#seating'));
 addEventListener('pagehide',()=>{chairObserver.disconnect();chairScene?.dispose()},{once:true});
 
-let humanStudy,humanProgress=0,humanManual=false,humanTrigger;
-const humanChapters=[{step:'01 / THE STARTING POSITION',title:'The work stays.<br><em>Your perspective changes.</em>',text:'A closer look at the relationship between your working position, your support and your line of sight.',state:'CONVENTIONAL SETUP'},{step:'02 / FIND YOUR SUPPORT',title:'Settle in.<br><em>Find your support.</em>',text:'The chair becomes part of the workspace. The clinician adjusts as the forearms find their supports.',state:'SUPPORT / CHAIR & FOREARMS'},{step:'03 / CHANGE YOUR PERSPECTIVE',title:'A different angle.<br><em>The same fine detail.</em>',text:'The angled optics bring the working field into view as the clinician adopts a more upright position.',state:'PERSPECTIVE / ANGLED OPTICS'},{step:'04 / BRING THE WORK INTO FOCUS',title:'Support. Perspective.<br><em>Light.</em>',text:'The headlight brings illumination to the dental model. One connected setup, ready for a closer look.',state:'TERO / THE CONNECTED SETUP'}];let humanChapter=-1;
-function humanUI(p){const chapter=p<.12?0:p<.36?1:p<.74?2:3;$('#human-range').value=Math.round(p*100);if(chapter===humanChapter)return;humanChapter=chapter;const copy=humanChapters[chapter];$('#human-step').textContent=copy.step;$('#human-title').innerHTML=copy.title;$('#human-description').textContent=copy.text;$('#human-state').textContent=copy.state;$$('[data-human-phase]').forEach((b,i)=>b.setAttribute('aria-pressed',i===chapter));$('#human-fallback').src=p<.5?'assets/clinical-before.jpg':'assets/clinical-after.jpg';}
-function setHuman(p,manual){humanManual=manual;$('.human-story').classList.toggle('manual',manual);$('#human-scroll').textContent=manual?'Resume scroll story ↓':'Scroll to explore ↓';$('#human-scroll').setAttribute('aria-pressed',!manual);humanStudy?.setProgress(p);if(!humanStudy)humanUI(p);}
-$$('[data-human-phase]').forEach(b=>b.addEventListener('click',()=>setHuman(Number(b.dataset.humanPhase),true)));$('#human-range').addEventListener('input',e=>setHuman(Number(e.target.value)/100,true));$('#human-scroll').addEventListener('click',()=>setHuman(humanProgress,false));
-if(window.ScrollTrigger){humanTrigger=ScrollTrigger.create({trigger:'#human-perspective',start:'top top',end:'bottom bottom',onUpdate:self=>{humanProgress=self.progress;if(!humanManual)setHuman(humanProgress,false)}});}
-const humanObserver=new IntersectionObserver(entries=>{if(!entries.some(e=>e.isIntersecting))return;humanObserver.disconnect();import('./human-study.js').then(async({createHumanStudy})=>{humanStudy=await createHumanStudy($('#human-scene'),humanUI);humanStudy.setProgress(humanManual?Number($('#human-range').value)/100:humanProgress)}).catch(error=>{console.error('Human perspective unavailable:',error);$('#human-scene .human-loading').textContent='Illustrated setup comparison';})},{rootMargin:'500px'});humanObserver.observe($('#human-perspective'));
-addEventListener('pagehide',()=>{humanObserver.disconnect();humanTrigger?.kill();humanStudy?.dispose()},{once:true});
+const dentistVideo = $('#dentist-video');
+let playOnEntry = true;
+const dentistPreload = new IntersectionObserver(entries => {
+  if (!entries.some(entry => entry.isIntersecting)) return;
+  dentistVideo.preload = 'metadata';
+  dentistPreload.disconnect();
+}, { rootMargin: '300px' });
+dentistPreload.observe(dentistVideo);
+
+const dentistPlayback = new IntersectionObserver(([entry]) => {
+  if (entry.intersectionRatio >= .7) {
+    if (!playOnEntry || motion.matches || dentistVideo.ended) return;
+    playOnEntry = false;
+    dentistVideo.play().catch(() => {
+      // The native controls remain available if autoplay is blocked.
+    });
+  } else if (!entry.isIntersecting && !dentistVideo.paused) {
+    playOnEntry = true;
+    dentistVideo.pause();
+  }
+}, { threshold: [0, .7] });
+dentistPlayback.observe(dentistVideo);
