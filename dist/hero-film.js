@@ -1,8 +1,14 @@
-const WIDTH = 1280;
-const HEIGHT = 720;
-const FRAME_COUNT = 240;
+const WIDTH = 1600;
+const HEIGHT = 900;
+const FRAME_COUNT = 216;
+const OPENING_FRAME = 18;
+const FRAME_RATE = 24;
 const FRAMES_PER_SHEET = 4;
 const LAST_SHEET = Math.ceil(FRAME_COUNT / FRAMES_PER_SHEET) - 1;
+const OPENING_SHEETS = Array.from(
+  { length: Math.floor(OPENING_FRAME / FRAMES_PER_SHEET) + 1 },
+  (_, index) => index
+);
 
 export function createHeroFilm(canvas, ambient, motion) {
   const context = canvas.getContext('2d', { alpha: false });
@@ -11,11 +17,13 @@ export function createHeroFilm(canvas, ambient, motion) {
 
   const downloads = new Map();
   const sheets = new Map();
-  let target = 0;
+  let target = OPENING_FRAME;
   let position = 0;
   let drawn = -1;
   let request = 0;
   let lastTime = 0;
+  let opening = !motion.matches;
+  let openingStart;
 
   function download(index) {
     if (!downloads.has(index)) {
@@ -58,11 +66,45 @@ export function createHeroFilm(canvas, ambient, motion) {
       schedule();
     }).catch(() => {
       downloads.delete(index);
+      if (sheets.get(index) === entry) {
+        entry.failed = true;
+        schedule();
+      }
     });
+  }
+
+  function draw(frame) {
+    const sheet = sheets.get(Math.floor(frame / FRAMES_PER_SHEET));
+    if (frame === drawn || !sheet?.image) return;
+    const tile = frame % FRAMES_PER_SHEET;
+    context.drawImage(sheet.image, tile % 2 * WIDTH, Math.floor(tile / 2) * HEIGHT,
+      WIDTH, HEIGHT, 0, 0, WIDTH, HEIGHT);
+    if (ambientContext) {
+      ambientContext.drawImage(canvas, 0, 0, ambient.width, ambient.height);
+      ambient.classList.add('ready');
+    }
+    canvas.dataset.frame = String(frame);
+    canvas.classList.add('ready');
+    drawn = frame;
   }
 
   function render(now) {
     request = 0;
+    if (opening) {
+      OPENING_SHEETS.forEach(loadSheet);
+      const entries = OPENING_SHEETS.map(index => sheets.get(index));
+      if (entries.some(entry => entry.failed)) {
+        opening = false;
+      } else {
+        if (entries.some(entry => !entry.image)) return;
+        openingStart ??= now;
+        position = Math.min(OPENING_FRAME, Math.floor((now - openingStart) * FRAME_RATE / 1000));
+        draw(position);
+        opening = position < OPENING_FRAME;
+        schedule();
+        return;
+      }
+    }
     const elapsed = lastTime ? Math.min(now - lastTime, 40) : 16.7;
     lastTime = now;
     const distance = target - position;
@@ -88,19 +130,7 @@ export function createHeroFilm(canvas, ambient, motion) {
     }
     for (const index of wanted) loadSheet(index);
 
-    const sheet = sheets.get(sheetIndex);
-    if (frame !== drawn && sheet.image) {
-      const tile = frame % FRAMES_PER_SHEET;
-      context.drawImage(sheet.image, tile % 2 * WIDTH, Math.floor(tile / 2) * HEIGHT,
-        WIDTH, HEIGHT, 0, 0, WIDTH, HEIGHT);
-      if (ambientContext) {
-        ambientContext.drawImage(canvas, 0, 0, ambient.width, ambient.height);
-        ambient.classList.add('ready');
-      }
-      canvas.dataset.frame = String(frame);
-      canvas.classList.add('ready');
-      drawn = frame;
-    }
+    draw(frame);
     if (position !== target) schedule();
     else lastTime = 0;
   }
@@ -111,7 +141,8 @@ export function createHeroFilm(canvas, ambient, motion) {
 
   return {
     setProgress(progress) {
-      const next = progress * (FRAME_COUNT - 1);
+      if (progress > 0 || motion.matches) opening = false;
+      const next = OPENING_FRAME + progress * (FRAME_COUNT - 1 - OPENING_FRAME);
       if (next === target && drawn >= 0) return;
       target = next;
       schedule();
