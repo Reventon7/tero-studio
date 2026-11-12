@@ -67,8 +67,8 @@
 
 .hero-film canvas { visibility: hidden; }
 .hero-film canvas.ready { visibility: visible; }
-.hero-film:has(#hero-film.ready) img { visibility: hidden; }
-.hero-film #hero-ambient { display: none; }
+.hero-film:has(.film-frames.ready) img { visibility: hidden; }
+.hero-film .film-ambient { display: none; }
 
 .hero-continue {
   position: absolute;
@@ -92,14 +92,14 @@
 
 /* Extend the scene on taller screens while keeping its product labels in view. */
 @media (max-aspect-ratio: 8/5), (min-aspect-ratio: 21/9) {
-  .hero-film #hero-ambient {
+  .hero-film .film-ambient {
     display: block;
     filter: blur(32px) brightness(.65);
     transform: scale(1.18);
   }
 
   .hero-film img,
-  .hero-film #hero-film {
+  .hero-film .film-frames {
     inset: 50% auto auto 50%;
     width: min(100%, calc(100svh * 16 / 9));
     height: auto;
@@ -110,27 +110,21 @@
 
 @media (max-aspect-ratio: 8/5) {
   .hero-film img,
-  .hero-film #hero-film {
+  .hero-film .film-frames {
     mask-image: linear-gradient(180deg, transparent, #000 9%, #000 91%, transparent);
   }
 }
 
 @media (min-aspect-ratio: 21/9) {
   .hero-film img,
-  .hero-film #hero-film {
+  .hero-film .film-frames {
     mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent);
   }
 }
 
-.dentist-film {
-  position: relative;
-  background: #141918;
-}
+/* Cancel the site's fixed-header anchor offset for the full-screen film. */
+.dentist-story { height: 360svh; scroll-margin-top: -100px; }
 
-.dentist-film video {
-  display: block;
-  width: 100%;
-  height: min(100svh, 56.25vw);
-  object-fit: cover;
-  background: #141918;
+@media (max-width: 760px) {
+  .dentist-story { height: 340svh; }
 }

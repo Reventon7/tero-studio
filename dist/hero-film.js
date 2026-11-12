@@ -1,14 +1,13 @@
-const FRAME_COUNT = 216;
-const OPENING_FRAME = 18;
 const FRAME_RATE = 24;
 const FRAMES_PER_SHEET = 4;
-const LAST_SHEET = Math.ceil(FRAME_COUNT / FRAMES_PER_SHEET) - 1;
 const DECODE_LIMIT = 2;
 const CACHE_LIMIT = 6;
 const sheetAt = frame => Math.floor(Math.round(frame) / FRAMES_PER_SHEET);
-const OPENING_SHEETS = Array.from({ length: sheetAt(OPENING_FRAME) + 1 }, (_, index) => index);
 
-export function createHeroFilm(canvas, ambient, motion) {
+export function createScrollFilm(canvas, ambient, motion, { directory, frameCount, openingFrame = 0 }) {
+  const lastSheet = sheetAt(frameCount - 1);
+  const openingSheet = sheetAt(openingFrame);
+  const openingSheets = Array.from({ length: openingSheet + 1 }, (_, index) => index);
   const compact = matchMedia('(max-width: 760px)').matches;
   const width = compact ? 960 : 1440;
   const height = compact ? 540 : 810;
@@ -25,21 +24,21 @@ export function createHeroFilm(canvas, ambient, motion) {
   const decoding = new Set();
   const failures = new Map();
   let wanted = [];
-  let target = OPENING_FRAME;
-  let position = motion.matches ? OPENING_FRAME : 0;
+  let target = openingFrame;
+  let position = motion.matches ? openingFrame : 0;
   let drawn = -1;
   let request = 0;
   let lastTime = 0;
-  let opening = !motion.matches;
+  let opening = openingFrame > 0 && !motion.matches;
   let openingStart;
   let direction = 1;
 
   function download(index) {
     if (!downloads.has(index)) {
       const filename = prefix + '-' + String(index).padStart(2, '0') + '.webp';
-      const url = new URL('./assets/hero-film/' + filename, import.meta.url);
+      const url = new URL('./assets/' + directory + '/' + filename, import.meta.url);
       const response = fetch(url).then(result => {
-        if (!result.ok) throw new Error('Hero frame sheet unavailable');
+        if (!result.ok) throw new Error('Film frame sheet unavailable');
         return result.blob();
       }).catch(error => {
         downloads.delete(index);
@@ -75,7 +74,7 @@ export function createHeroFilm(canvas, ambient, motion) {
   }
 
   function queueSheets(indices, ahead = []) {
-    wanted = [...new Set(indices)].filter(index => index >= 0 && index <= LAST_SHEET);
+    wanted = [...new Set(indices)].filter(index => index >= 0 && index <= lastSheet);
     const now = performance.now();
     for (const index of wanted) {
       if (decoding.size >= DECODE_LIMIT) break;
@@ -95,7 +94,7 @@ export function createHeroFilm(canvas, ambient, motion) {
       });
     }
     for (const index of ahead) {
-      if (index < 0 || index > LAST_SHEET || downloads.has(index) || (failures.get(index) ?? 0) > now) continue;
+      if (index < 0 || index > lastSheet || downloads.has(index) || (failures.get(index) ?? 0) > now) continue;
       download(index).catch(() => failures.set(index, performance.now() + 1000));
     }
   }
@@ -122,15 +121,15 @@ export function createHeroFilm(canvas, ambient, motion) {
   function render(now) {
     request = 0;
     if (opening) {
-      queueSheets(OPENING_SHEETS, [...OPENING_SHEETS, 5, 6]);
-      if (OPENING_SHEETS.some(index => failures.has(index))) {
+      queueSheets(openingSheets, [...openingSheets, openingSheet + 1, openingSheet + 2]);
+      if (openingSheets.some(index => failures.has(index))) {
         opening = false;
       } else {
-        if (!OPENING_SHEETS.every(index => decoded.has(index))) return;
+        if (!openingSheets.every(index => decoded.has(index))) return;
         openingStart ??= now;
-        position = Math.min(OPENING_FRAME, Math.floor((now - openingStart) * FRAME_RATE / 1000));
+        position = Math.min(openingFrame, Math.floor((now - openingStart) * FRAME_RATE / 1000));
         draw(position);
-        opening = position < OPENING_FRAME;
+        opening = position < openingFrame;
         schedule();
         return;
       }
@@ -168,7 +167,7 @@ export function createHeroFilm(canvas, ambient, motion) {
   return {
     setProgress(progress) {
       if (progress > 0 || motion.matches) opening = false;
-      const next = OPENING_FRAME + progress * (FRAME_COUNT - 1 - OPENING_FRAME);
+      const next = openingFrame + progress * (frameCount - 1 - openingFrame);
       if (next !== target) direction = Math.sign(next - target);
       else if (drawn >= 0 && !opening) return;
       target = next;

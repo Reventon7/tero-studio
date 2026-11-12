@@ -1,4 +1,4 @@
-import {createHeroFilm} from './hero-film.js';
+import {createScrollFilm} from './hero-film.js';
 
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 let lightingScene,filterActive=false;
@@ -40,12 +40,21 @@ $('.menu-toggle').addEventListener('click',()=>{opener=document.activeElement;me
 
 const story = $('#experience');
 const stage = story.querySelector('.stage');
+const dentistStory = $('#human-perspective');
+const dentistStage = dentistStory.querySelector('.stage');
+let dentistFilm;
 const header = $('.site-header');
 const pageProgress = $('.page-progress');
 const lightSections = $$('#collection,#frames,#seating,.questions');
 const finishAt = .92;
-const heroFilm = createHeroFilm($('#hero-film'), $('#hero-ambient'), motion);
-const scrollRange = () => Math.max(1, story.offsetHeight - stage.offsetHeight);
+const heroFilm = createScrollFilm($('#hero-film'), $('#hero-ambient'), motion, {
+  directory: 'hero-film', frameCount: 216, openingFrame: 18
+});
+
+function filmProgress(section, pinnedStage, y) {
+  const range = Math.max(1, section.offsetHeight - pinnedStage.offsetHeight);
+  return Math.max(0, Math.min(1, (y - section.offsetTop) / (range * finishAt)));
+}
 
 let scrollPending = false;
 function scrollState() {
@@ -57,13 +66,16 @@ function scrollState() {
     return rect.top < 76 && rect.bottom > 76;
   });
   const total = document.documentElement.scrollHeight - innerHeight;
-  const progress = Math.max(0, Math.min(1, (y - story.offsetTop) / (scrollRange() * finishAt)));
+  const progress = filmProgress(story, stage, y);
+  const clinicalProgress = dentistFilm ? filmProgress(dentistStory, dentistStage, y) : 0;
   header.classList.toggle('scrolled', y > 60);
   header.classList.toggle('over-film', overFilm);
   header.classList.toggle('light-header', lightSurface);
   pageProgress.style.transform = `scaleX(${total > 0 ? y / total : 0})`;
   const still = progress < .22 ? 0 : progress < .46 ? .34 : .88;
   heroFilm.setProgress(motion.matches ? still : progress);
+  const clinicalStill = clinicalProgress < .35 ? 0 : clinicalProgress < .75 ? .55 : 1;
+  dentistFilm?.setProgress(motion.matches ? clinicalStill : clinicalProgress);
 }
 addEventListener('scroll', () => {
   if (scrollPending) return;
@@ -97,25 +109,12 @@ $('#chair-motion').addEventListener('click',()=>{if(!chairScene)return;chairScen
 const chairObserver=new IntersectionObserver(entries=>{if(!entries.some(e=>e.isIntersecting))return;chairObserver.disconnect();import('./chair-scene.js').then(async({createChairScene})=>{chairScene=await createChairScene($('#chair-scene'));chooseChairView(chairView)}).catch(error=>{console.error('TERO chair unavailable:',error);$('#chair-scene .chair-loading').textContent='3D unavailable on this device. Explore the catalog below.';document.querySelectorAll('[data-chair-view],#chair-motion,#chair-explore').forEach(b=>b.disabled=true)})},{rootMargin:'500px'});chairObserver.observe($('#seating'));
 addEventListener('pagehide',()=>{chairObserver.disconnect();chairScene?.dispose()},{once:true});
 
-const dentistVideo = $('#dentist-video');
-let playOnEntry = true;
-const dentistPreload = new IntersectionObserver(entries => {
+const dentistObserver = new IntersectionObserver(entries => {
   if (!entries.some(entry => entry.isIntersecting)) return;
-  dentistVideo.preload = 'metadata';
-  dentistPreload.disconnect();
-}, { rootMargin: '300px' });
-dentistPreload.observe(dentistVideo);
-
-const dentistPlayback = new IntersectionObserver(([entry]) => {
-  if (entry.intersectionRatio >= .7) {
-    if (!playOnEntry || motion.matches || dentistVideo.ended) return;
-    playOnEntry = false;
-    dentistVideo.play().catch(() => {
-      // The native controls remain available if autoplay is blocked.
-    });
-  } else if (!entry.isIntersecting && !dentistVideo.paused) {
-    playOnEntry = true;
-    dentistVideo.pause();
-  }
-}, { threshold: [0, .7] });
-dentistPlayback.observe(dentistVideo);
+  dentistObserver.disconnect();
+  dentistFilm = createScrollFilm($('#dentist-film'), $('#dentist-ambient'), motion, {
+    directory: 'dentist-film', frameCount: 239
+  });
+  scrollState();
+}, { rootMargin: '400px' });
+dentistObserver.observe(dentistStory);
