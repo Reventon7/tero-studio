@@ -1,0 +1,6 @@
+{
+  "framework": null,
+  "installCommand": "echo Static assets are included",
+  "buildCommand": "npm run check",
+  "outputDirectory": "dist"
+}

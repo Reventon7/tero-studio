@@ -1,0 +1,2 @@
+{"name":"tero-studio","version":"2.0.0","private":true,"type":"module","scripts":{"dev":"node server.mjs","check":"node --check dist/app.js && node --check dist/hero-film.js && node --check dist/scene.js && node --check dist/product-refinement.js && node --check dist/chair-scene.js && node --check dist/human-study.js"},"dependencies":{"three":"0.186.1","gsap":"^3.14.0"}}
+

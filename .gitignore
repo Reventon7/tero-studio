@@ -1,0 +1,10 @@
+node_modules/
+.openai/
+.vercel/
+.env
+.env.*
+motion/
+design/qa/
+/dist/*-export.*
+/dist/film.html
+/dist/film.js
