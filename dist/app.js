@@ -48,7 +48,7 @@ const header = $('.site-header');
 const pageProgress = $('.page-progress');
 const lightSections = $$('#collection,#frames,#seating,.questions');
 const heroFilm = createScrollFilm($('#hero-film'), $('#hero-ambient'), motion, {
-  directory: 'hero-film-48', frameCount: 431, openingFrame: 36
+  directory: 'hero-film-48', frameCount: 431, openingFrame: 36, ambientOnDesktop: true
 });
 let dentistFilm;
 

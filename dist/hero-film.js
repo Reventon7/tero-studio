@@ -7,7 +7,9 @@ const POSITION_EPSILON = .15;
 const VELOCITY_EPSILON = .002;
 const sheetAt = frame => Math.floor(Math.round(frame) / FRAMES_PER_SHEET);
 
-export function createScrollFilm(canvas, ambient, motion, { directory, frameCount, openingFrame = 0, widths = [1280, 832] }) {
+export function createScrollFilm(canvas, ambient, motion, {
+  directory, frameCount, openingFrame = 0, widths = [1280, 832], ambientOnDesktop = false
+}) {
   const lastSheet = sheetAt(frameCount - 1);
   const openingSheet = sheetAt(openingFrame);
   const openingSheets = Array.from({ length: openingSheet + 1 }, (_, index) => index);
@@ -19,7 +21,9 @@ export function createScrollFilm(canvas, ambient, motion, { directory, frameCoun
   canvas.height = height;
   const context = canvas.getContext('2d', { alpha: false });
   if (!context) return { setProgress() {} };
-  const ambientLayout = matchMedia('(max-aspect-ratio: 8/5), (min-aspect-ratio: 21/9)');
+  const ambientLayout = matchMedia(ambientOnDesktop
+    ? '(min-width: 761px), (max-aspect-ratio: 8/5), (min-aspect-ratio: 21/9)'
+    : '(max-aspect-ratio: 8/5), (min-aspect-ratio: 21/9)');
   const ambientContext = ambient.getContext('2d', { alpha: false });
 
   const downloads = new Map();

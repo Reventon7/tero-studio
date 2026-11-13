@@ -160,6 +160,47 @@
 .film-panel .hero-continue { z-index: 2; left: auto; right: var(--pad); transform: none; }
 .film-panel:first-child :is(.film-caption, .hero-continue) { opacity: var(--hero-copy, 1); }
 .film-panel--dentist :is(.film-caption, .hero-continue) { opacity: var(--dentist-copy, 0); }
+@media (min-width: 761px) {
+  .film-panel--hero {
+    background: radial-gradient(ellipse at 74% 53%, #26332f, #0b100f 72%);
+  }
+
+  .film-panel--hero .film-ambient {
+    display: block;
+    filter: blur(42px) brightness(.53);
+    transform: scale(1.18);
+    opacity: .78;
+  }
+
+  .film-panel--hero .hero-film :is(img, .film-frames) {
+    inset: 53% max(8px, calc(var(--pad) * .35)) auto auto;
+    width: min(65%, 150svh);
+    height: auto;
+    aspect-ratio: 16 / 9;
+    transform: translateY(-50%);
+    mask-image:
+      linear-gradient(90deg, transparent, #000 8%, #000 94%, transparent),
+      linear-gradient(180deg, transparent, #000 9%, #000 86%, transparent);
+    mask-composite: intersect;
+  }
+
+  .film-panel--hero::after {
+    background: linear-gradient(90deg, #090e0e 0%, #090e0edf 25%, #090e0e45 43%, transparent 58%);
+  }
+
+  .film-panel--hero .film-caption {
+    top: 53%;
+    bottom: auto;
+    max-width: 34%;
+    transform: translateY(-50%);
+  }
+
+  .film-panel--hero .film-caption h1 {
+    font-size: clamp(33px, min(4.65vw, 12svh), 80px);
+    font-weight: 500;
+  }
+}
+
 @media (max-width: 760px) {
   .film-caption { bottom: max(83px, 11svh); }
   .film-caption h1, .film-caption h2 { font-size: clamp(31px, 8vw, 52px); }
