@@ -2,6 +2,9 @@ const FRAME_RATE = 48;
 const FRAMES_PER_SHEET = 4;
 const DECODE_LIMIT = 2;
 const CACHE_LIMIT = 8;
+const SETTLE_TIME = 95;
+const POSITION_EPSILON = .15;
+const VELOCITY_EPSILON = .002;
 const sheetAt = frame => Math.floor(Math.round(frame) / FRAMES_PER_SHEET);
 
 export function createScrollFilm(canvas, ambient, motion, { directory, frameCount, openingFrame = 0, widths = [1280, 832] }) {
@@ -26,6 +29,7 @@ export function createScrollFilm(canvas, ambient, motion, { directory, frameCoun
   let wanted = [];
   let target = openingFrame;
   let position = motion.matches ? openingFrame : 0;
+  let velocity = 0;
   let drawn = -1;
   let request = 0;
   let lastTime = 0;
@@ -131,6 +135,25 @@ export function createScrollFilm(canvas, ambient, motion, { directory, frameCoun
     decoded.set(index, image);
   }
 
+  function advance(elapsed) {
+    const displacement = position - target;
+    if (motion.matches ||
+        (Math.abs(displacement) < POSITION_EPSILON && Math.abs(velocity) < VELOCITY_EPSILON)) {
+      position = target;
+      velocity = 0;
+      return;
+    }
+
+    // Critically damped motion preserves speed across wheel events and brakes
+    // toward the latest scroll position without oscillating around it.
+    const drift = velocity + displacement / SETTLE_TIME;
+    const decay = Math.exp(-elapsed / SETTLE_TIME);
+    const next = target + (displacement + drift * elapsed) * decay;
+    velocity = (velocity - drift * elapsed / SETTLE_TIME) * decay;
+    position = Math.max(openingFrame, Math.min(frameCount - 1, next));
+    if (position !== next) velocity = 0;
+  }
+
   function render(now) {
     request = 0;
     if (opening) {
@@ -154,10 +177,7 @@ export function createScrollFilm(canvas, ambient, motion, { directory, frameCoun
 
     const elapsed = lastTime ? Math.min(now - lastTime, 50) : 16.7;
     lastTime = now;
-    const distance = target - position;
-    position = motion.matches || Math.abs(distance) < .3
-      ? target
-      : position + distance * (1 - Math.exp(-elapsed / 85));
+    advance(elapsed);
 
     const frame = Math.round(position);
     const current = sheetAt(frame);
@@ -182,7 +202,7 @@ export function createScrollFilm(canvas, ambient, motion, { directory, frameCoun
         break;
       }
     }
-    if (position !== target) schedule();
+    if (position !== target || velocity !== 0) schedule();
     else lastTime = 0;
   }
 
@@ -196,13 +216,14 @@ export function createScrollFilm(canvas, ambient, motion, { directory, frameCoun
 
   return {
     setProgress(progress) {
+      const wasOpening = opening;
       if (progress > 0 || motion.matches) opening = false;
       const next = openingFrame + progress * (frameCount - 1 - openingFrame);
       if (next !== target) {
         direction = Math.sign(next - target);
         warmAhead(sheetAt(next), direction);
       }
-      else if (drawn >= 0 && !opening) return;
+      else if (drawn >= 0 && !wasOpening && !motion.matches) return;
       target = next;
       schedule();
     }
