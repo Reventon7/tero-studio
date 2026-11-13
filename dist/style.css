@@ -162,14 +162,14 @@
 .film-panel--dentist :is(.film-caption, .hero-continue) { opacity: var(--dentist-copy, 0); }
 @media (min-width: 761px) {
   .film-panel--hero {
-    background: radial-gradient(ellipse at 74% 53%, #26332f, #0b100f 72%);
+    background: radial-gradient(ellipse at 74% 53%, #1b2425, #0b100f 76%);
   }
 
   .film-panel--hero .film-ambient {
     display: block;
-    filter: blur(42px) brightness(.53);
-    transform: scale(1.18);
-    opacity: .78;
+    filter: blur(64px) brightness(.73);
+    transform: scale(1.22);
+    opacity: .88;
   }
 
   .film-panel--hero .hero-film :is(img, .film-frames) {
@@ -179,13 +179,13 @@
     aspect-ratio: 16 / 9;
     transform: translateY(-50%);
     mask-image:
-      linear-gradient(90deg, transparent, #000 8%, #000 94%, transparent),
-      linear-gradient(180deg, transparent, #000 9%, #000 86%, transparent);
+      linear-gradient(90deg, transparent 0%, #0001 3%, #0005 6%, #000a 9%, #000e 13%, #000 17%, #000 82%, #000e 87%, #000a 91%, #0005 94%, #0001 97%, transparent 100%),
+      linear-gradient(180deg, transparent 0%, #0001 4%, #0005 8%, #000b 12%, #000e 17%, #000 22%, #000 73%, #000e 80%, #000a 86%, #0005 91%, #0001 96%, transparent 100%);
     mask-composite: intersect;
   }
 
   .film-panel--hero::after {
-    background: linear-gradient(90deg, #090e0e 0%, #090e0edf 25%, #090e0e45 43%, transparent 58%);
+    background: linear-gradient(90deg, #090e0ef2 0%, #090e0ec4 24%, #090e0e53 39%, #090e0e13 50%, transparent 64%);
   }
 
   .film-panel--hero .film-caption {
