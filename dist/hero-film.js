@@ -38,7 +38,7 @@ export function createScrollFilm(canvas, ambient, motion, {
   let request = 0;
   let lastTime = 0;
   let opening = openingFrame > 0 && !motion.matches;
-  let openingStart;
+  let openingTime;
   let direction = 1;
   let prefetchTimer;
 
@@ -169,11 +169,16 @@ export function createScrollFilm(canvas, ambient, motion, {
       if (openingSheets.some(index => failures.has(index))) {
         opening = false;
       } else {
-        if (openingStart === undefined && !window.every(index => decoded.has(index))) return;
-        openingStart ??= now;
-        position = Math.min(openingFrame, Math.floor((now - openingStart) * FRAME_RATE / 1000));
-        draw(position);
-        opening = position < openingFrame;
+        if (openingTime === undefined && !window.every(index => decoded.has(index))) return;
+        const elapsed = openingTime === undefined ? 0 : Math.min(now - openingTime, 34);
+        openingTime = now;
+        const next = Math.min(openingFrame, position + elapsed * FRAME_RATE / 1000);
+        const frame = Math.floor(next);
+        if (decoded.has(sheetAt(frame))) {
+          position = next;
+          draw(frame);
+          opening = frame < openingFrame;
+        }
         schedule();
         return;
       }
@@ -221,7 +226,9 @@ export function createScrollFilm(canvas, ambient, motion, {
   return {
     setProgress(progress) {
       const wasOpening = opening;
-      if (progress > 0 || motion.matches) opening = false;
+      // Queue early scroll input while the frame lands. Skip the intro when
+      // navigation jumps directly past the hero or motion is reduced.
+      if (progress >= 1 || motion.matches) opening = false;
       const next = openingFrame + progress * (frameCount - 1 - openingFrame);
       if (next !== target) {
         direction = Math.sign(next - target);
