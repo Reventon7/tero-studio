@@ -160,43 +160,57 @@
 .film-panel .hero-continue { z-index: 2; left: auto; right: var(--pad); transform: none; }
 .film-panel:first-child :is(.film-caption, .hero-continue) { opacity: var(--hero-copy, 1); }
 .film-panel--dentist :is(.film-caption, .hero-continue) { opacity: var(--dentist-copy, 0); }
-@media (min-width: 761px) {
-  .film-panel--hero {
-    background: radial-gradient(ellipse at 74% 53%, #1b2425, #0b100f 76%);
-  }
+/* The hero film runs to the top, bottom and right edges of the stage.
+   The opaque part of the lighting gradient covers the source's left edge. */
+.hero-scene-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 22px;
+  min-height: 44px;
+  margin-top: 22px;
+  padding: 0 16px;
+  border: 1px solid #ecf0e94a;
+  color: #f7f8f2;
+  font-size: 12px;
+  transition: background-color .2s, border-color .2s;
+}
+.hero-scene-link:hover,
+.hero-scene-link:focus-visible {
+  background: #f7f8f218;
+  border-color: #ecf0e98c;
+}
 
-  .film-panel--hero .film-ambient {
-    display: block;
-    filter: blur(64px) brightness(.73);
-    transform: scale(1.22);
-    opacity: .88;
-  }
+@media (min-width: 761px) {
+  .film-panel--hero { background: #0a1010; }
+
+  .film-panel--hero .film-ambient { display: none; }
 
   .film-panel--hero .hero-film :is(img, .film-frames) {
-    inset: 53% max(8px, calc(var(--pad) * .35)) auto auto;
-    width: min(65%, 150svh);
-    height: auto;
-    aspect-ratio: 16 / 9;
-    transform: translateY(-50%);
-    mask-image:
-      linear-gradient(90deg, transparent 0%, #0001 3%, #0005 6%, #000a 9%, #000e 13%, #000 17%, #000 82%, #000e 87%, #000a 91%, #0005 94%, #0001 97%, transparent 100%),
-      linear-gradient(180deg, transparent 0%, #0001 4%, #0005 8%, #000b 12%, #000e 17%, #000 22%, #000 73%, #000e 80%, #000a 86%, #0005 91%, #0001 96%, transparent 100%);
-    mask-composite: intersect;
+    inset: 0 0 0 auto;
+    width: 88%;
+    height: 100%;
+    aspect-ratio: auto;
+    object-fit: cover;
+    object-position: 62% 46%;
+    transform: none;
+    mask-image: none;
   }
 
   .film-panel--hero::after {
-    background: linear-gradient(90deg, #090e0ef2 0%, #090e0ec4 24%, #090e0e53 39%, #090e0e13 50%, transparent 64%);
+    background:
+      linear-gradient(90deg, #0a1010 0%, #0a1010 13%, #0a1010f5 22%, #0a1010bd 33%, #0a10104f 44%, #0a101014 53%, transparent 63%),
+      linear-gradient(180deg, #090d0e40, transparent 27%, transparent 82%, #090d0e61);
   }
 
   .film-panel--hero .film-caption {
-    top: 53%;
+    top: 51%;
     bottom: auto;
-    max-width: 34%;
+    max-width: 41%;
     transform: translateY(-50%);
   }
 
   .film-panel--hero .film-caption h1 {
-    font-size: clamp(33px, min(4.65vw, 12svh), 80px);
+    font-size: clamp(33px, min(5.35vw, 13svh), 94px);
     font-weight: 500;
   }
 }
