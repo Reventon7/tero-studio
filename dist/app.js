@@ -38,42 +38,62 @@ $$('[data-close]').forEach(b=>b.addEventListener('click',()=>b.closest('dialog')
 for(const d of [dialog,menu]){d.addEventListener('click',e=>{if(e.target!==d)return;const r=d.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)d.close()});d.addEventListener('close',()=>{document.body.style.overflow='';$('.menu-toggle').setAttribute('aria-expanded','false');opener?.focus()})}
 $('.menu-toggle').addEventListener('click',()=>{opener=document.activeElement;menu.showModal();$('.menu-toggle').setAttribute('aria-expanded','true');document.body.style.overflow='hidden'});$$('#mobile-menu nav a').forEach(a=>a.addEventListener('click',()=>menu.close()));
 
+const experience = $('.film-experience');
 const story = $('#experience');
-const stage = story.querySelector('.stage');
 const dentistStory = $('#human-perspective');
-const dentistStage = dentistStory.querySelector('.stage');
-let dentistFilm;
+const stage = $('#film-stage');
+const heroPanel = stage.firstElementChild;
+const dentistPanel = stage.lastElementChild;
 const header = $('.site-header');
 const pageProgress = $('.page-progress');
 const lightSections = $$('#collection,#frames,#seating,.questions');
-const finishAt = .92;
 const heroFilm = createScrollFilm($('#hero-film'), $('#hero-ambient'), motion, {
-  directory: 'hero-film', frameCount: 216, openingFrame: 18
+  directory: 'hero-film-48', frameCount: 431, openingFrame: 36
 });
+let dentistFilm;
 
-function filmProgress(section, pinnedStage, y) {
-  const range = Math.max(1, section.offsetHeight - pinnedStage.offsetHeight);
-  return Math.max(0, Math.min(1, (y - section.offsetTop) / (range * finishAt)));
+const clampProgress = value => Math.max(0, Math.min(1, value));
+
+function prepareDentist() {
+  dentistFilm ??= createScrollFilm($('#dentist-film'), $('#dentist-ambient'), motion, {
+    directory: 'dentist-film-48', frameCount: 477, widths: [1152, 768]
+  });
 }
 
 let scrollPending = false;
 function scrollState() {
   scrollPending = false;
   const y = scrollY;
-  const overFilm = y < story.offsetTop + story.offsetHeight - header.offsetHeight;
+  const height = stage.offsetHeight;
+  const heroStart = experience.offsetTop + story.offsetTop;
+  const dentistStart = experience.offsetTop + dentistStory.offsetTop;
+  const blendStart = dentistStart - height * .52;
+  const blend = clampProgress((y - blendStart) / Math.max(1, dentistStart - blendStart));
+  const progress = clampProgress((y - heroStart) / Math.max(1, blendStart - heroStart - height * .12));
+  const clinicalProgress = clampProgress((y - dentistStart) / Math.max(1, (dentistStory.offsetHeight - height) * .92));
+  const overFilm = y < experience.offsetTop + experience.offsetHeight - header.offsetHeight;
   const lightSurface = !overFilm && lightSections.some(section => {
     const rect = section.getBoundingClientRect();
     return rect.top < 76 && rect.bottom > 76;
   });
   const total = document.documentElement.scrollHeight - innerHeight;
-  const progress = filmProgress(story, stage, y);
-  const clinicalProgress = dentistFilm ? filmProgress(dentistStory, dentistStage, y) : 0;
+  const opacity = motion.matches ? Number(blend >= 1) : blend * blend * (3 - 2 * blend);
+
   header.classList.toggle('scrolled', y > 60);
   header.classList.toggle('over-film', overFilm);
   header.classList.toggle('light-header', lightSurface);
   pageProgress.style.transform = `scaleX(${total > 0 ? y / total : 0})`;
+  dentistPanel.style.opacity = opacity;
+  stage.style.setProperty('--hero-copy', 1 - clampProgress(opacity / .38));
+  stage.style.setProperty('--dentist-copy', clampProgress((opacity - .58) / .42));
+  dentistPanel.style.visibility = opacity > 0 ? 'visible' : 'hidden';
+  heroPanel.style.visibility = opacity < 1 ? 'visible' : 'hidden';
+  heroPanel.inert = opacity >= .5;
+  dentistPanel.inert = opacity < .5;
+
   const still = progress < .22 ? 0 : progress < .46 ? .34 : .88;
   heroFilm.setProgress(motion.matches ? still : progress);
+  if (y >= blendStart - height * .7) prepareDentist();
   const clinicalStill = clinicalProgress < .35 ? 0 : clinicalProgress < .75 ? .55 : 1;
   dentistFilm?.setProgress(motion.matches ? clinicalStill : clinicalProgress);
 }
@@ -108,13 +128,3 @@ $('#chair-explore').addEventListener('click',()=>chooseChairView((chairView+1)%4
 $('#chair-motion').addEventListener('click',()=>{if(!chairScene)return;chairScene.state.paused=!chairScene.state.paused;$('#chair-motion').setAttribute('aria-pressed',chairScene.state.paused);$('#chair-motion').setAttribute('aria-label',chairScene.state.paused?'Resume chair motion':'Pause chair motion');$('#chair-motion').textContent=chairScene.state.paused?'▷':'Ⅱ'});
 const chairObserver=new IntersectionObserver(entries=>{if(!entries.some(e=>e.isIntersecting))return;chairObserver.disconnect();import('./chair-scene.js').then(async({createChairScene})=>{chairScene=await createChairScene($('#chair-scene'));chooseChairView(chairView)}).catch(error=>{console.error('TERO chair unavailable:',error);$('#chair-scene .chair-loading').textContent='3D unavailable on this device. Explore the catalog below.';document.querySelectorAll('[data-chair-view],#chair-motion,#chair-explore').forEach(b=>b.disabled=true)})},{rootMargin:'500px'});chairObserver.observe($('#seating'));
 addEventListener('pagehide',()=>{chairObserver.disconnect();chairScene?.dispose()},{once:true});
-
-const dentistObserver = new IntersectionObserver(entries => {
-  if (!entries.some(entry => entry.isIntersecting)) return;
-  dentistObserver.disconnect();
-  dentistFilm = createScrollFilm($('#dentist-film'), $('#dentist-ambient'), motion, {
-    directory: 'dentist-film', frameCount: 239
-  });
-  scrollState();
-}, { rootMargin: '400px' });
-dentistObserver.observe(dentistStory);

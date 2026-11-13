@@ -1,16 +1,16 @@
-const FRAME_RATE = 24;
+const FRAME_RATE = 48;
 const FRAMES_PER_SHEET = 4;
 const DECODE_LIMIT = 2;
-const CACHE_LIMIT = 6;
+const CACHE_LIMIT = 8;
 const sheetAt = frame => Math.floor(Math.round(frame) / FRAMES_PER_SHEET);
 
-export function createScrollFilm(canvas, ambient, motion, { directory, frameCount, openingFrame = 0 }) {
+export function createScrollFilm(canvas, ambient, motion, { directory, frameCount, openingFrame = 0, widths = [1280, 832] }) {
   const lastSheet = sheetAt(frameCount - 1);
   const openingSheet = sheetAt(openingFrame);
   const openingSheets = Array.from({ length: openingSheet + 1 }, (_, index) => index);
   const compact = matchMedia('(max-width: 760px)').matches;
-  const width = compact ? 960 : 1440;
-  const height = compact ? 540 : 810;
+  const width = widths[compact ? 1 : 0];
+  const height = width * 9 / 16;
   const prefix = compact ? 'compact' : 'frame';
   canvas.width = width;
   canvas.height = height;
@@ -32,10 +32,16 @@ export function createScrollFilm(canvas, ambient, motion, { directory, frameCoun
   let opening = openingFrame > 0 && !motion.matches;
   let openingStart;
   let direction = 1;
+  let prefetchTimer;
+
+  function prefetch(index) {
+    if (index < 0 || index > lastSheet || downloads.has(index)) return;
+    download(index).catch(() => {});
+  }
 
   function download(index) {
     if (!downloads.has(index)) {
-      const filename = prefix + '-' + String(index).padStart(2, '0') + '.webp';
+      const filename = prefix + '-' + String(index).padStart(3, '0') + '.webp';
       const url = new URL('./assets/' + directory + '/' + filename, import.meta.url);
       const response = fetch(url).then(result => {
         if (!result.ok) throw new Error('Film frame sheet unavailable');
@@ -94,9 +100,16 @@ export function createScrollFilm(canvas, ambient, motion, { directory, frameCoun
       });
     }
     for (const index of ahead) {
-      if (index < 0 || index > lastSheet || downloads.has(index) || (failures.get(index) ?? 0) > now) continue;
-      download(index).catch(() => failures.set(index, performance.now() + 1000));
+      if ((failures.get(index) ?? 0) <= now) prefetch(index);
     }
+  }
+
+  function warmAhead(from, sign) {
+    clearTimeout(prefetchTimer);
+    if (motion.matches) return;
+    prefetchTimer = setTimeout(() => {
+      for (let offset = 1; offset <= 12; offset++) prefetch(from + offset * sign);
+    }, 140);
   }
 
   function draw(frame, force = false) {
@@ -121,11 +134,15 @@ export function createScrollFilm(canvas, ambient, motion, { directory, frameCoun
   function render(now) {
     request = 0;
     if (opening) {
-      queueSheets(openingSheets, [...openingSheets, openingSheet + 1, openingSheet + 2]);
+      // The opening spans more sheets than the scrub cache. Decode a rolling
+      // window and start once the first few sheets can play without waiting.
+      const first = sheetAt(position);
+      const window = openingSheets.slice(first, first + 4);
+      queueSheets(window, openingSheets);
       if (openingSheets.some(index => failures.has(index))) {
         opening = false;
       } else {
-        if (!openingSheets.every(index => decoded.has(index))) return;
+        if (openingStart === undefined && !window.every(index => decoded.has(index))) return;
         openingStart ??= now;
         position = Math.min(openingFrame, Math.floor((now - openingStart) * FRAME_RATE / 1000));
         draw(position);
@@ -145,13 +162,26 @@ export function createScrollFilm(canvas, ambient, motion, { directory, frameCoun
     const frame = Math.round(position);
     const current = sheetAt(frame);
     const destination = sheetAt(target);
-    const nearby = [current, current + direction, destination, current - direction,
-      current + direction * 2, destination + direction];
+    const nearby = [current, destination, current + direction, current - direction,
+      current + direction * 2, destination + direction, current - direction * 2];
     const ahead = [current + direction * 3, current + direction * 4,
-      current + direction * 5, destination, destination + direction, current - direction * 2];
+      current + direction * 5, current + direction * 6, current + direction * 7,
+      destination, destination + direction, destination + direction * 2, current - direction * 3];
     queueSheets(motion.matches ? [current] : nearby, motion.matches ? [] : ahead);
 
-    draw(frame);
+    if (decoded.has(current)) {
+      draw(frame);
+    } else if (drawn >= 0) {
+      // Keep moving through available frames while a requested sheet decodes.
+      const step = Math.sign(frame - drawn);
+      for (let offset = 1; step && offset <= 7; offset++) {
+        const candidate = frame - offset * step;
+        if ((candidate - drawn) * step <= 0) break;
+        if (!decoded.has(sheetAt(candidate))) continue;
+        draw(candidate);
+        break;
+      }
+    }
     if (position !== target) schedule();
     else lastTime = 0;
   }
@@ -168,7 +198,10 @@ export function createScrollFilm(canvas, ambient, motion, { directory, frameCoun
     setProgress(progress) {
       if (progress > 0 || motion.matches) opening = false;
       const next = openingFrame + progress * (frameCount - 1 - openingFrame);
-      if (next !== target) direction = Math.sign(next - target);
+      if (next !== target) {
+        direction = Math.sign(next - target);
+        warmAhead(sheetAt(next), direction);
+      }
       else if (drawn >= 0 && !opening) return;
       target = next;
       schedule();
