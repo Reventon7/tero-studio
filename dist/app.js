@@ -56,7 +56,7 @@ const clampProgress = value => Math.max(0, Math.min(1, value));
 
 function prepareDentist() {
   dentistFilm ??= createScrollFilm($('#dentist-film'), $('#dentist-ambient'), motion, {
-    directory: 'dentist-film-48', frameCount: 477, widths: [1152, 768]
+    directory: 'dentist-final-48', frameCount: 575, widths: [1152, 768]
   });
 }
 

@@ -122,11 +122,11 @@
   }
 }
 
-/* Cancel the site's fixed-header anchor offset for the full-screen film. */
-.dentist-story { height: 360svh; scroll-margin-top: -100px; }
+/* Give the longer dentist film roughly the same scroll distance per second as the hero. */
+.dentist-story { height: 520svh; scroll-margin-top: -100px; }
 
 @media (max-width: 760px) {
-  .dentist-story { height: 340svh; }
+  .dentist-story { height: 490svh; }
 }
 
 .film-experience { position: relative; background: #0b100f; }
