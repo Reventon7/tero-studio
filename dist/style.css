@@ -160,7 +160,31 @@
 .film-panel .hero-continue { z-index: 2; left: auto; right: var(--pad); transform: none; }
 .film-panel:first-child :is(.film-caption, .hero-continue) { opacity: var(--hero-copy, 1); }
 .film-panel--dentist :is(.film-caption, .hero-continue) { opacity: var(--dentist-copy, 0); }
-/* The opaque part of the lighting gradient covers the film's left edge. */
+.film-panel--hero {
+  --hero-black: #0b0d10;
+  background: var(--hero-black);
+}
+
+.film-panel--hero .hero-film :is(img, .film-frames) {
+  inset: 51% 0 auto auto;
+  width: 89%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
+  transform: translateY(-50%);
+  mask-image:
+    linear-gradient(90deg, transparent, #000 27%),
+    linear-gradient(180deg, transparent, #000 20%, #000 78%, transparent),
+    radial-gradient(ellipse 83% 64% at 67% 53%, #000 39%, transparent 91%);
+  mask-composite: intersect;
+}
+
+.film-panel--hero .hero-film .film-ambient { display: none; }
+
+.film-panel--hero::after {
+  background: linear-gradient(90deg, var(--hero-black) 9%, #0b0d10f2 23%, #0b0d1066 39%, transparent 56%);
+}
+
 .hero-scene-link {
   display: inline-flex;
   align-items: center;
@@ -180,27 +204,6 @@
 }
 
 @media (min-width: 761px) {
-  .film-panel--hero { background: #0a1010; }
-
-  .film-panel--hero .film-ambient { display: none; }
-
-  .film-panel--hero .hero-film :is(img, .film-frames) {
-    inset: 50% 0 auto auto;
-    width: 88%;
-    height: min(100%, 49.5vw);
-    aspect-ratio: auto;
-    object-fit: cover;
-    object-position: 62% 46%;
-    transform: translateY(-50%);
-    mask-image: linear-gradient(180deg, transparent, #000 16%, #000 84%, transparent);
-  }
-
-  .film-panel--hero::after {
-    background:
-      linear-gradient(90deg, #0a1010 0%, #0a1010 13%, #0a1010f5 22%, #0a1010bd 33%, #0a10104f 44%, #0a101014 53%, transparent 63%),
-      linear-gradient(180deg, #090d0e40, transparent 27%, transparent 82%, #090d0e61);
-  }
-
   .film-panel--hero .film-caption {
     top: 51%;
     bottom: auto;
@@ -214,14 +217,23 @@
   }
 }
 
-@media (min-width: 761px) and (max-aspect-ratio: 8/5) {
-  .film-panel--hero .hero-film .film-ambient {
-    display: block;
-    opacity: .45;
+@media (min-aspect-ratio: 21/9) {
+  .film-panel--hero .hero-film :is(img, .film-frames) {
+    width: min(89%, 178svh);
   }
 }
 
 @media (max-width: 760px) {
+  .film-panel--hero .hero-film :is(img, .film-frames) {
+    inset: 37% -1% auto auto;
+    width: 122%;
+    mask-image:
+      linear-gradient(180deg, transparent, #000 22%, #000 78%, transparent),
+      radial-gradient(ellipse 84% 70% at 65% 55%, #000 47%, transparent 94%);
+  }
+  .film-panel--hero::after {
+    background: linear-gradient(180deg, var(--hero-black), transparent 27%, transparent 47%, var(--hero-black) 66%);
+  }
   .film-caption { bottom: max(83px, 11svh); }
   .film-caption h1, .film-caption h2 { font-size: clamp(31px, 8vw, 52px); }
   .film-caption p { margin-top: 11px; }
