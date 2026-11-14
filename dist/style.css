@@ -165,7 +165,7 @@
 }
 
 .film-panel--hero::after {
-  background: radial-gradient(ellipse at 0% 18%, #0b0d10de, #0b0d1059 22%, transparent 53%);
+  background: radial-gradient(ellipse at 0% 36%, #0b0d10de, #0b0d1059 22%, transparent 53%);
 }
 
 .hero-chapter-description { min-height: 3.7em; }
@@ -175,9 +175,10 @@
   align-items: center;
   gap: 22px;
   min-height: 44px;
-  margin-top: 22px;
+  margin-top: 16px;
   padding: 0 16px;
   border: 1px solid #ecf0e94a;
+  background: #0b0d1040;
   color: #f7f8f2;
   font-size: 12px;
   transition: background-color .2s, border-color .2s;
@@ -202,13 +203,14 @@
   .film-panel--hero .hero-film .film-ambient { display: none; }
 
   .film-panel--hero .film-caption {
-    top: clamp(105px, 17svh, 180px);
+    top: clamp(108px, 21.5svh, 205px);
     bottom: auto;
-    max-width: 24%;
+    width: min(25%, 460px);
+    max-width: none;
   }
 
   .film-panel--hero .film-caption h1 {
-    font-size: clamp(28px, min(3.55vw, 8svh), 70px);
+    font-size: clamp(28px, min(3.85vw, 7.6svh), 74px);
     font-weight: 500;
   }
 }
@@ -241,6 +243,18 @@
   }
 }
 
+@media (min-width: 761px) and (min-aspect-ratio: 3/2) and (max-height: 620px) {
+  .film-panel--hero .film-caption {
+    top: max(82px, 18svh);
+  }
+  .film-panel--hero .film-caption .film-kicker { margin-bottom: 8px; }
+  .film-panel--hero .film-caption h1 {
+    font-size: clamp(26px, min(3.4vw, 6.6svh), 44px);
+  }
+  .film-caption .hero-chapter-description { margin-top: 10px; line-height: 1.45; min-height: 0; }
+  .hero-scene-link { margin-top: 12px; }
+}
+
 /* Preserve every callout when a tall viewport would crop the sides. */
 @media (max-width: 760px), (max-aspect-ratio: 3/2) {
   .film-panel--hero .hero-film .film-ambient {
@@ -262,11 +276,13 @@
   .film-panel--hero .film-caption {
     top: auto;
     bottom: clamp(36px, 8svh, 83px);
+    width: auto;
     max-width: min(90%, 580px);
   }
 }
 
 @media (max-width: 760px) {
+  .film-panel--hero .hero-film :is(img, .film-frames) { top: 42%; }
   .film-caption { bottom: max(83px, 11svh); }
   .film-caption h1, .film-caption h2 { font-size: clamp(31px, 8vw, 52px); }
   .film-caption p { margin-top: 11px; }
