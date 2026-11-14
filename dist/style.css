@@ -217,6 +217,30 @@
   .film-panel--hero .hero-film :is(img, .film-frames) { width: 100%; }
 }
 
+@media (min-width: 761px) and (min-aspect-ratio: 8/5) {
+  .film-panel--hero .hero-film {
+    --hero-shot-width: 106%;
+    --hero-shot-offset: 6%;
+  }
+
+  .film-panel--hero .hero-film :is(img, .film-frames) {
+    left: var(--hero-shot-offset);
+    width: var(--hero-shot-width);
+    mask-image: linear-gradient(90deg, transparent, #000 5.5%);
+  }
+
+  /* Continue the backdrop at the same scale. Clip before the first callout. */
+  .film-panel--hero .hero-film .film-ambient {
+    display: block;
+    inset: 0;
+    width: var(--hero-shot-width);
+    object-position: left center;
+    filter: none;
+    transform: none;
+    clip-path: inset(0 88.5% 0 0);
+  }
+}
+
 /* Preserve every callout when a tall viewport would crop the sides. */
 @media (max-width: 760px), (max-aspect-ratio: 3/2) {
   .film-panel--hero .hero-film .film-ambient {
