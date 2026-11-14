@@ -228,18 +228,18 @@
   .film-panel--hero .hero-film :is(img, .film-frames) {
     left: var(--hero-shot-offset);
     width: var(--hero-shot-width);
-    mask-image: linear-gradient(90deg, transparent, #000 5.5%);
+    mask-image: linear-gradient(90deg, transparent 4%, #000 10.5%);
   }
 
-  /* Continue the backdrop at the same scale. Clip before the first callout. */
+  /* The clean edge strip follows the film's vertical framing and lighting. */
   .film-panel--hero .hero-film .film-ambient {
     display: block;
     inset: 0;
     width: var(--hero-shot-width);
     object-position: left center;
-    filter: none;
+    filter: blur(2px);
     transform: none;
-    clip-path: inset(0 88.5% 0 0);
+    clip-path: inset(0 83% 0 0);
   }
 }
 

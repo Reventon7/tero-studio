@@ -9,7 +9,7 @@ const sheetAt = frame => Math.floor(Math.round(frame) / FRAMES_PER_SHEET);
 
 export function createScrollFilm(canvas, ambient, motion, {
   directory, frameCount, openingFrame = 0, widths = [1280, 832],
-  ambientMedia = '(max-aspect-ratio: 8/5), (min-aspect-ratio: 21/9)', onFrame
+  ambientMedia = '(max-aspect-ratio: 8/5), (min-aspect-ratio: 21/9)', ambientStrip, onFrame
 }) {
   const lastSheet = sheetAt(frameCount - 1);
   const openingSheet = sheetAt(openingFrame);
@@ -23,6 +23,7 @@ export function createScrollFilm(canvas, ambient, motion, {
   const context = canvas.getContext('2d', { alpha: false });
   if (!context) return { setProgress() {} };
   const ambientLayout = matchMedia(ambientMedia);
+  const stripLayout = ambientStrip && matchMedia(ambientStrip.media);
   const ambientContext = ambient.getContext('2d', { alpha: false });
 
   const downloads = new Map();
@@ -128,7 +129,10 @@ export function createScrollFilm(canvas, ambient, motion, {
     const y = Math.floor(tile / 2) * height;
     context.drawImage(image, x, y, width, height, 0, 0, width, height);
     if (ambientContext && ambientLayout.matches) {
-      ambientContext.drawImage(image, x, y, width, height, 0, 0, ambient.width, ambient.height);
+      const strip = stripLayout?.matches ? ambientStrip : null;
+      const sourceX = strip ? x + Math.round(width * strip.left) : x;
+      const sourceWidth = strip ? Math.round(width * (strip.right - strip.left)) : width;
+      ambientContext.drawImage(image, sourceX, y, sourceWidth, height, 0, 0, ambient.width, ambient.height);
       ambient.classList.add('ready');
     }
     if (drawn < 0) canvas.classList.add('ready');
@@ -219,9 +223,11 @@ export function createScrollFilm(canvas, ambient, motion, {
     if (!request) request = requestAnimationFrame(render);
   }
 
-  ambientLayout.addEventListener('change', () => {
+  function redrawAmbient() {
     if (drawn >= 0) draw(drawn, true);
-  });
+  }
+  ambientLayout.addEventListener('change', redrawAmbient);
+  stripLayout?.addEventListener('change', redrawAmbient);
 
   return {
     setProgress(progress) {
