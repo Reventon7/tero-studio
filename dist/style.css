@@ -161,38 +161,11 @@
 .film-panel:first-child :is(.film-caption, .hero-continue) { opacity: var(--hero-copy, 1); }
 .film-panel--dentist :is(.film-caption, .hero-continue) { opacity: var(--dentist-copy, 0); }
 .film-panel--hero {
-  --hero-black: #0b0d10;
-  --hero-film-width: min(66vw, 166svh);
-  --hero-film-center: 53%;
-  --hero-vertical-fade: linear-gradient(180deg, transparent, #000 17%, #000 81%, transparent);
-  background: radial-gradient(ellipse at 65% 54%, #242725 0%, #161917 46%, var(--hero-black) 100%);
-}
-
-.film-panel--hero .hero-film :is(img, .film-frames) {
-  inset: var(--hero-film-center) 0 auto auto;
-  width: var(--hero-film-width);
-  height: auto;
-  aspect-ratio: 16 / 9;
-  object-fit: contain;
-  transform: translateY(-50%);
-  mask-image:
-    linear-gradient(90deg, transparent, #000 11%),
-    var(--hero-vertical-fade);
-  mask-composite: intersect;
-}
-
-.film-panel--hero .hero-film .film-ambient {
-  display: block;
-  inset: var(--hero-film-center) auto auto 0;
-  width: 100%;
-  height: calc(var(--hero-film-width) * 9 / 16);
-  object-fit: fill;
-  transform: translateY(-50%);
-  mask-image: var(--hero-vertical-fade);
+  background: #0b0d10;
 }
 
 .film-panel--hero::after {
-  background: linear-gradient(90deg, #0b0d1080, #0b0d1033 28%, transparent 51%);
+  background: radial-gradient(ellipse at 0% 18%, #0b0d10de, #0b0d1059 22%, transparent 53%);
 }
 
 .hero-chapter-description { min-height: 3.7em; }
@@ -216,27 +189,60 @@
 }
 
 @media (min-width: 761px) {
+  .film-panel--hero .hero-film :is(img, .film-frames) {
+    inset: 0;
+    width: 110%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 30% 50%;
+    transform: none;
+    mask-image: none;
+  }
+
+  .film-panel--hero .hero-film .film-ambient { display: none; }
+
   .film-panel--hero .film-caption {
-    top: 51%;
+    top: clamp(105px, 17svh, 180px);
     bottom: auto;
-    max-width: 41%;
-    transform: translateY(-50%);
+    max-width: 24%;
   }
 
   .film-panel--hero .film-caption h1 {
-    font-size: clamp(33px, min(5.35vw, 13svh), 94px);
+    font-size: clamp(28px, min(3.55vw, 8svh), 70px);
     font-weight: 500;
   }
 }
 
-@media (max-width: 760px) {
-  .film-panel--hero {
-    --hero-film-width: 100vw;
-    --hero-film-center: 35%;
+@media (min-width: 761px) and (max-aspect-ratio: 8/5) {
+  .film-panel--hero .hero-film :is(img, .film-frames) { width: 100%; }
+}
+
+/* Preserve every callout when a tall viewport would crop the sides. */
+@media (max-width: 760px), (max-aspect-ratio: 3/2) {
+  .film-panel--hero .hero-film .film-ambient {
+    display: block;
+    filter: blur(32px) brightness(.65);
+    transform: scale(1.18);
+  }
+  .film-panel--hero .hero-film :is(img, .film-frames) {
+    inset: 39% auto auto 0;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    transform: translateY(-50%);
+    mask-image: linear-gradient(180deg, transparent, #000 9%, #000 91%, transparent);
   }
   .film-panel--hero::after {
     background: linear-gradient(180deg, transparent 53%, #0b0d1080);
   }
+  .film-panel--hero .film-caption {
+    top: auto;
+    bottom: clamp(36px, 8svh, 83px);
+    max-width: min(90%, 580px);
+  }
+}
+
+@media (max-width: 760px) {
   .film-caption { bottom: max(83px, 11svh); }
   .film-caption h1, .film-caption h2 { font-size: clamp(31px, 8vw, 52px); }
   .film-caption p { margin-top: 11px; }

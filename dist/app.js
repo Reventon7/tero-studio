@@ -80,7 +80,9 @@ function updateHeroCopy(frame) {
 
 const heroFilm = createScrollFilm($('#hero-film'), $('#hero-ambient'), motion, {
   directory: 'hero-magnific-hd-48', frameCount: 576, openingFrame: 64,
-  widths: [1920, 832], ambientOnDesktop: true, ambientEdge: true, onFrame: updateHeroCopy
+  widths: [1920, 832],
+  ambientMedia: '(max-width: 760px), (max-aspect-ratio: 3/2)',
+  onFrame: updateHeroCopy
 });
 let dentistFilm;
 

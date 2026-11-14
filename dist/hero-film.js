@@ -9,7 +9,7 @@ const sheetAt = frame => Math.floor(Math.round(frame) / FRAMES_PER_SHEET);
 
 export function createScrollFilm(canvas, ambient, motion, {
   directory, frameCount, openingFrame = 0, widths = [1280, 832],
-  ambientOnDesktop = false, ambientEdge = false, onFrame
+  ambientMedia = '(max-aspect-ratio: 8/5), (min-aspect-ratio: 21/9)', onFrame
 }) {
   const lastSheet = sheetAt(frameCount - 1);
   const openingSheet = sheetAt(openingFrame);
@@ -22,9 +22,7 @@ export function createScrollFilm(canvas, ambient, motion, {
   canvas.height = height;
   const context = canvas.getContext('2d', { alpha: false });
   if (!context) return { setProgress() {} };
-  const ambientLayout = matchMedia(ambientOnDesktop
-    ? '(min-width: 761px), (max-aspect-ratio: 8/5), (min-aspect-ratio: 21/9)'
-    : '(max-aspect-ratio: 8/5), (min-aspect-ratio: 21/9)');
+  const ambientLayout = matchMedia(ambientMedia);
   const ambientContext = ambient.getContext('2d', { alpha: false });
 
   const downloads = new Map();
@@ -130,11 +128,7 @@ export function createScrollFilm(canvas, ambient, motion, {
     const y = Math.floor(tile / 2) * height;
     context.drawImage(image, x, y, width, height, 0, 0, width, height);
     if (ambientContext && ambientLayout.matches) {
-      // Sample an unlabelled strip just inside the film's vignette so the
-      // backdrop follows the same floor and lighting as the current frame.
-      const sampleX = ambientEdge ? Math.round(width * .06) : 0;
-      const sampleWidth = ambientEdge ? Math.round(width * .045) : width;
-      ambientContext.drawImage(image, x + sampleX, y, sampleWidth, height, 0, 0, ambient.width, ambient.height);
+      ambientContext.drawImage(image, x, y, width, height, 0, 0, ambient.width, ambient.height);
       ambient.classList.add('ready');
     }
     if (drawn < 0) canvas.classList.add('ready');
