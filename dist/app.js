@@ -48,7 +48,8 @@ const header = $('.site-header');
 const pageProgress = $('.page-progress');
 const lightSections = $$('#collection,#frames,#seating,.questions');
 const heroFilm = createScrollFilm($('#hero-film'), $('#hero-ambient'), motion, {
-  directory: 'hero-magnific-48', frameCount: 576, openingFrame: 64, ambientOnDesktop: true
+  directory: 'hero-magnific-hd-48', frameCount: 576, openingFrame: 64,
+  widths: [1920, 832], ambientOnDesktop: true
 });
 let dentistFilm;
 
