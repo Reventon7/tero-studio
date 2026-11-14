@@ -8,7 +8,8 @@ const VELOCITY_EPSILON = .002;
 const sheetAt = frame => Math.floor(Math.round(frame) / FRAMES_PER_SHEET);
 
 export function createScrollFilm(canvas, ambient, motion, {
-  directory, frameCount, openingFrame = 0, widths = [1280, 832], ambientOnDesktop = false
+  directory, frameCount, openingFrame = 0, widths = [1280, 832],
+  ambientOnDesktop = false, ambientEdge = false, onFrame
 }) {
   const lastSheet = sheetAt(frameCount - 1);
   const openingSheet = sheetAt(openingFrame);
@@ -129,12 +130,17 @@ export function createScrollFilm(canvas, ambient, motion, {
     const y = Math.floor(tile / 2) * height;
     context.drawImage(image, x, y, width, height, 0, 0, width, height);
     if (ambientContext && ambientLayout.matches) {
-      ambientContext.drawImage(image, x, y, width, height, 0, 0, ambient.width, ambient.height);
+      // Sample an unlabelled strip just inside the film's vignette so the
+      // backdrop follows the same floor and lighting as the current frame.
+      const sampleX = ambientEdge ? Math.round(width * .06) : 0;
+      const sampleWidth = ambientEdge ? Math.round(width * .045) : width;
+      ambientContext.drawImage(image, x + sampleX, y, sampleWidth, height, 0, 0, ambient.width, ambient.height);
       ambient.classList.add('ready');
     }
     if (drawn < 0) canvas.classList.add('ready');
     canvas.dataset.frame = String(frame);
     drawn = frame;
+    onFrame?.(frame);
     decoded.delete(index);
     decoded.set(index, image);
   }

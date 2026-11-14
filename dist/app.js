@@ -47,9 +47,40 @@ const dentistPanel = stage.lastElementChild;
 const header = $('.site-header');
 const pageProgress = $('.page-progress');
 const lightSections = $$('#collection,#frames,#seating,.questions');
+const heroCopy = $('.hero-chapter-copy');
+const heroKicker = heroCopy.querySelector('.film-kicker');
+const heroLead = $('#hero-title span');
+const heroEmphasis = $('#hero-title em');
+const heroDescription = heroCopy.querySelector('.hero-chapter-description');
+const heroChapters = [
+  { start: 0, kicker: 'TERO OPTICS', lead: 'See beyond', emphasis: 'the ordinary.', description: 'Precision optics, light and support for the way you work.' },
+  { start: 170, kicker: 'TERO LOUPES', lead: 'Look closer.', emphasis: 'See the detail.', description: 'Explore the optics that bring your work into focus.' },
+  { start: 294, kicker: 'TERO LIGHT', lead: 'Light up', emphasis: 'the details.', description: 'A headlight that follows your line of sight.' },
+  { start: 372, kicker: 'AMBER FILTER', lead: 'A warmer', emphasis: 'perspective.', description: 'See the beam change as the amber filter closes.' }
+];
+let activeHeroChapter = heroChapters[0];
+let heroCopyAnimation;
+
+function updateHeroCopy(frame) {
+  const chapter = heroChapters.findLast(({ start }) => frame >= start);
+  if (chapter === activeHeroChapter) return;
+  activeHeroChapter = chapter;
+  heroKicker.textContent = chapter.kicker;
+  heroLead.textContent = chapter.lead;
+  heroEmphasis.textContent = chapter.emphasis;
+  heroDescription.textContent = chapter.description;
+  heroCopyAnimation?.cancel();
+  if (!motion.matches) {
+    heroCopyAnimation = heroCopy.animate(
+      [{ opacity: .28, transform: 'translateY(5px)' }, { opacity: 1, transform: 'translateY(0)' }],
+      { duration: 230, easing: 'ease-out' }
+    );
+  }
+}
+
 const heroFilm = createScrollFilm($('#hero-film'), $('#hero-ambient'), motion, {
   directory: 'hero-magnific-hd-48', frameCount: 576, openingFrame: 64,
-  widths: [1920, 832], ambientOnDesktop: true
+  widths: [1920, 832], ambientOnDesktop: true, ambientEdge: true, onFrame: updateHeroCopy
 });
 let dentistFilm;
 
