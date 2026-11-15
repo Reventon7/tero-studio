@@ -160,6 +160,39 @@
 .film-panel .hero-continue { z-index: 2; left: auto; right: var(--pad); transform: none; }
 .film-panel:first-child :is(.film-caption, .hero-continue) { opacity: var(--hero-copy, 1); }
 .film-panel--dentist :is(.film-caption, .hero-continue) { opacity: var(--dentist-copy, 0); }
+@property --dentist-reveal {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+.dentist-chapters {
+  display: grid;
+  grid-template-rows: auto auto;
+  --dentist-reveal: 0;
+}
+.dentist-chapters.is-after { --dentist-reveal: 1; }
+@media (prefers-reduced-motion: no-preference) {
+  .dentist-chapters { transition: --dentist-reveal 480ms cubic-bezier(.3, .05, .2, 1); }
+}
+.dentist-chapter {
+  display: grid;
+  grid-area: 1 / 1 / span 2;
+  grid-template-rows: subgrid;
+}
+.dentist-copy-window {
+  --reveal: clamp(0, calc(var(--dentist-reveal) * 1.18), 1);
+  clip-path: inset(-.15em -1em calc(var(--reveal) * (100% + .15em)) -1em);
+}
+.dentist-copy-window + .dentist-copy-window {
+  --reveal: clamp(0, calc(var(--dentist-reveal) * 1.18 - .18), 1);
+}
+.dentist-copy-window > * { transform: translateY(calc(var(--reveal) * -.7em)); }
+.dentist-chapter + .dentist-chapter .dentist-copy-window {
+  clip-path: inset(calc((1 - var(--reveal)) * (100% + .2em)) -1em -.2em -1em);
+}
+.dentist-chapter + .dentist-chapter .dentist-copy-window > * {
+  transform: translateY(calc((1 - var(--reveal)) * .85em));
+}
 .film-panel--hero {
   background: #0b0d10;
 }

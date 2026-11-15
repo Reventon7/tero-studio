@@ -93,33 +93,24 @@ const heroFilm = createScrollFilm($('#hero-film'), $('#hero-ambient'), motion, {
 let dentistFilm;
 const dentistFrameCount = 575;
 const ergonomicFrame = 416;
-const dentistCaption = dentistPanel.querySelector('.film-caption');
-const dentistTitle = $('#dentist-title');
-const dentistLead = dentistTitle.querySelector('span');
-const dentistEmphasis = dentistTitle.querySelector('em');
-const dentistDescription = dentistCaption.querySelector('.dentist-description');
-const dentistCopy = {
-  before: [dentistLead.textContent, dentistEmphasis.textContent, dentistDescription.textContent],
-  after: ['A more upright', 'working posture.', 'The TERO chair supports the arms as the loupes bring the working field into view with less forward lean.']
-};
+const dentistChapters = dentistPanel.querySelector('.dentist-chapters');
+const [dentistBefore, dentistAfter] = dentistChapters.children;
+const clampProgress = value => Math.max(0, Math.min(1, value));
 let dentistHasTero = false;
 
 function updateDentistCopy(frame) {
   const hasTero = frame >= ergonomicFrame;
   if (hasTero === dentistHasTero) return;
   dentistHasTero = hasTero;
-  const [lead, emphasis, description] = hasTero ? dentistCopy.after : dentistCopy.before;
-  dentistLead.textContent = lead;
-  dentistEmphasis.textContent = emphasis;
-  dentistDescription.textContent = description;
+  dentistChapters.classList.toggle('is-after', hasTero);
+  dentistBefore.setAttribute('aria-hidden', String(hasTero));
+  dentistAfter.setAttribute('aria-hidden', String(!hasTero));
 }
-
-const clampProgress = value => Math.max(0, Math.min(1, value));
 
 function prepareDentist() {
   dentistFilm ??= createScrollFilm($('#dentist-film'), $('#dentist-ambient'), motion, {
     directory: 'dentist-final-48', frameCount: dentistFrameCount, widths: [1152, 768],
-    directScrub: true, onFrame: updateDentistCopy
+    settleTime: 48, preloadEnd: true, onFrame: updateDentistCopy
   });
 }
 
@@ -161,7 +152,7 @@ function scrollState() {
   heroFilm.setProgress(motion.matches ? still : progress);
   if (y >= blendStart - height * .7) prepareDentist();
   const clinicalStill = clinicalProgress < ergonomicFrame / (dentistFrameCount - 1) ? 0 : 1;
-  dentistFilm?.setProgress(motion.matches ? clinicalStill : clinicalProgress);
+  dentistFilm?.setProgress(motion.matches ? clinicalStill : clinicalProgress, { immediate: y >= stageRelease });
 }
 addEventListener('scroll', () => {
   if (scrollPending) return;

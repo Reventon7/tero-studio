@@ -2,7 +2,6 @@ const FRAME_RATE = 48;
 const FRAMES_PER_SHEET = 4;
 const DECODE_LIMIT = 2;
 const CACHE_LIMIT = 8;
-const SETTLE_TIME = 95;
 const POSITION_EPSILON = .15;
 const VELOCITY_EPSILON = .002;
 const sheetAt = frame => Math.floor(Math.round(frame) / FRAMES_PER_SHEET);
@@ -10,7 +9,7 @@ const sheetAt = frame => Math.floor(Math.round(frame) / FRAMES_PER_SHEET);
 export function createScrollFilm(canvas, ambient, motion, {
   directory, frameCount, openingFrame = 0, widths = [1280, 832],
   ambientMedia = '(max-aspect-ratio: 8/5), (min-aspect-ratio: 21/9)', ambientStrip, onFrame,
-  directScrub = false
+  settleTime = 95, preloadEnd = false
 }) {
   const lastSheet = sheetAt(frameCount - 1);
   const openingSheet = sheetAt(openingFrame);
@@ -100,7 +99,7 @@ export function createScrollFilm(canvas, ambient, motion, {
   function trimCache() {
     for (const [index, image] of decoded) {
       if (decoded.size <= CACHE_LIMIT) return;
-      if (wanted.includes(index) || (directScrub && index === lastSheet)) continue;
+      if (wanted.includes(index) || (preloadEnd && index === lastSheet)) continue;
       image.close?.();
       decoded.delete(index);
     }
@@ -196,7 +195,7 @@ export function createScrollFilm(canvas, ambient, motion, {
 
   function advance(elapsed) {
     const displacement = position - target;
-    if (directScrub || motion.matches ||
+    if (motion.matches ||
         (Math.abs(displacement) < POSITION_EPSILON && Math.abs(velocity) < VELOCITY_EPSILON)) {
       position = target;
       velocity = 0;
@@ -205,10 +204,10 @@ export function createScrollFilm(canvas, ambient, motion, {
 
     // Critically damped motion preserves speed across wheel events and brakes
     // toward the latest scroll position without oscillating around it.
-    const drift = velocity + displacement / SETTLE_TIME;
-    const decay = Math.exp(-elapsed / SETTLE_TIME);
+    const drift = velocity + displacement / settleTime;
+    const decay = Math.exp(-elapsed / settleTime);
     const next = target + (displacement + drift * elapsed) * decay;
-    velocity = (velocity - drift * elapsed / SETTLE_TIME) * decay;
+    velocity = (velocity - drift * elapsed / settleTime) * decay;
     position = Math.max(openingFrame, Math.min(frameCount - 1, next));
     if (position !== next) velocity = 0;
   }
@@ -252,12 +251,13 @@ export function createScrollFilm(canvas, ambient, motion, {
       current + direction * 5, current + direction * 6, current + direction * 7,
       destination, destination + direction, destination + direction * 2, current - direction * 3];
     // Keep the closing shot ready even if the visitor scrolls straight to it.
-    if (directScrub) nearby.splice(1, 0, lastSheet);
-    queueSheets(motion.matches ? [current] : nearby, motion.matches ? [] : ahead);
+    if (preloadEnd) nearby.splice(1, 0, lastSheet);
+    const stills = preloadEnd ? [current, lastSheet] : [current];
+    queueSheets(motion.matches ? stills : nearby, motion.matches ? [] : ahead);
 
     if (decoded.has(current)) {
       draw(frame);
-    } else if (!directScrub && drawn >= 0) {
+    } else if (drawn >= 0) {
       // Keep moving through available frames while a requested sheet decodes.
       const step = Math.sign(frame - drawn);
       for (let offset = 1; step && offset <= 7; offset++) {
@@ -283,17 +283,22 @@ export function createScrollFilm(canvas, ambient, motion, {
   stripLayout?.addEventListener('change', redrawAmbient);
 
   return {
-    setProgress(progress) {
+    setProgress(progress, { immediate = false } = {}) {
       const wasOpening = opening;
       // Queue early scroll input while the frame lands. Skip the intro when
       // navigation jumps directly past the hero or motion is reduced.
       if (progress >= 1 || motion.matches) opening = false;
       const next = openingFrame + progress * (frameCount - 1 - openingFrame);
+      const snap = immediate && position !== next;
+      if (snap) {
+        position = next;
+        velocity = 0;
+      }
       if (next !== target) {
         direction = Math.sign(next - target);
         warmAhead(sheetAt(next), direction);
       }
-      else if (drawn >= 0 && !wasOpening && !motion.matches) return;
+      else if (!snap && drawn >= 0 && !wasOpening && !motion.matches) return;
       target = next;
       schedule();
     }
