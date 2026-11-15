@@ -47,36 +47,44 @@ const dentistPanel = stage.lastElementChild;
 const header = $('.site-header');
 const pageProgress = $('.page-progress');
 const lightSections = $$('#collection,#frames,#seating,.questions');
-const heroCopy = $('.hero-chapter-copy');
-const heroKicker = heroCopy.querySelector('.film-kicker');
-const heroLead = $('#hero-title span');
-const heroEmphasis = $('#hero-title em');
-const heroDescription = heroCopy.querySelector('.hero-chapter-description');
-const heroChapters = [
-  { start: 0, kicker: 'TERO OPTICS', lead: 'See beyond', emphasis: 'the ordinary.', description: 'Precision optics, light and support for the way you work.' },
-  { start: 170, kicker: 'TERO LOUPES', lead: 'Look closer.', emphasis: 'See the detail.', description: 'Explore the optics that bring your work into focus.' },
-  { start: 294, kicker: 'TERO LIGHT', lead: 'Light up', emphasis: 'the details.', description: 'A headlight that follows your line of sight.' },
-  { start: 372, kicker: 'AMBER FILTER', lead: 'A warmer', emphasis: 'perspective.', description: 'See the beam change as the amber filter closes.' }
-];
-let activeHeroChapter = heroChapters[0];
-let heroCopyAnimation;
+const clampProgress = value => Math.max(0, Math.min(1, value));
 
-function updateHeroCopy(frame) {
-  const chapter = heroChapters.findLast(({ start }) => frame >= start);
-  if (chapter === activeHeroChapter) return;
-  activeHeroChapter = chapter;
-  heroKicker.textContent = chapter.kicker;
-  heroLead.textContent = chapter.lead;
-  heroEmphasis.textContent = chapter.emphasis;
-  heroDescription.textContent = chapter.description;
-  heroCopyAnimation?.cancel();
-  if (!motion.matches) {
-    heroCopyAnimation = heroCopy.animate(
-      [{ opacity: .28, transform: 'translateY(5px)' }, { opacity: 1, transform: 'translateY(0)' }],
-      { duration: 230, easing: 'ease-out' }
-    );
-  }
+function animateChapters(group) {
+  const chapters = [...group.children].map(element => ({ element, start: Number(element.dataset.start) }));
+  let active = chapters[0].element;
+  let leaving;
+  let entering;
+  const travel = 'clamp(24px, 8svh, 68px)';
+
+  return frame => {
+    const next = chapters.findLast(chapter => frame >= chapter.start).element;
+    if (next === active) return;
+
+    const previous = active;
+    const previousStyle = getComputedStyle(previous);
+    const exitStart = { opacity: previousStyle.opacity, transform: previousStyle.transform };
+    const nextStyle = getComputedStyle(next);
+    const enterStart = Number(nextStyle.opacity) > 0
+      ? { opacity: nextStyle.opacity, transform: nextStyle.transform }
+      : { opacity: 0, transform: `translateY(${travel})` };
+    leaving?.cancel();
+    entering?.cancel();
+
+    previous.classList.remove('is-current');
+    previous.setAttribute('aria-hidden', 'true');
+    next.classList.add('is-current');
+    next.removeAttribute('aria-hidden');
+    active = next;
+    if (motion.matches) return;
+
+    leaving = previous.animate([exitStart, { opacity: 0, transform: `translateY(calc(-1 * ${travel}))` }],
+      { duration: 210, easing: 'cubic-bezier(.45, 0, .75, .45)', fill: 'backwards' });
+    entering = next.animate([enterStart, { opacity: 1, transform: 'translateY(0)' }],
+      { delay: 95, duration: 255, easing: 'cubic-bezier(.16, 1, .3, 1)', fill: 'backwards' });
+  };
 }
+
+const updateHeroCopy = animateChapters(heroPanel.querySelector('.film-chapters'));
 
 const heroFilm = createScrollFilm($('#hero-film'), $('#hero-ambient'), motion, {
   directory: 'hero-magnific-hd-48', frameCount: 576, openingFrame: 64,
@@ -92,20 +100,9 @@ const heroFilm = createScrollFilm($('#hero-film'), $('#hero-ambient'), motion, {
 });
 let dentistFilm;
 const dentistFrameCount = 575;
-const ergonomicFrame = 416;
-const dentistChapters = dentistPanel.querySelector('.dentist-chapters');
-const [dentistBefore, dentistAfter] = dentistChapters.children;
-const clampProgress = value => Math.max(0, Math.min(1, value));
-let dentistHasTero = false;
-
-function updateDentistCopy(frame) {
-  const hasTero = frame >= ergonomicFrame;
-  if (hasTero === dentistHasTero) return;
-  dentistHasTero = hasTero;
-  dentistChapters.classList.toggle('is-after', hasTero);
-  dentistBefore.setAttribute('aria-hidden', String(hasTero));
-  dentistAfter.setAttribute('aria-hidden', String(!hasTero));
-}
+const dentistChapters = dentistPanel.querySelector('.film-chapters');
+const ergonomicFrame = Number(dentistChapters.lastElementChild.dataset.start);
+const updateDentistCopy = animateChapters(dentistChapters);
 
 function prepareDentist() {
   dentistFilm ??= createScrollFilm($('#dentist-film'), $('#dentist-ambient'), motion, {
