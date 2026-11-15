@@ -10,10 +10,9 @@ const sheetAt = frame => Math.floor(Math.round(frame) / FRAMES_PER_SHEET);
 export function createScrollFilm(canvas, ambient, motion, {
   directory, frameCount, openingFrame = 0, widths = [1280, 832],
   ambientMedia = '(max-aspect-ratio: 8/5), (min-aspect-ratio: 21/9)', ambientStrip, onFrame,
-  maxPlaybackRate = Infinity
+  directScrub = false
 }) {
   const lastSheet = sheetAt(frameCount - 1);
-  const maxVelocity = FRAME_RATE * maxPlaybackRate / 1000;
   const openingSheet = sheetAt(openingFrame);
   const openingSheets = Array.from({ length: openingSheet + 1 }, (_, index) => index);
   const compact = matchMedia('(max-width: 760px)').matches;
@@ -101,7 +100,7 @@ export function createScrollFilm(canvas, ambient, motion, {
   function trimCache() {
     for (const [index, image] of decoded) {
       if (decoded.size <= CACHE_LIMIT) return;
-      if (wanted.includes(index)) continue;
+      if (wanted.includes(index) || (directScrub && index === lastSheet)) continue;
       image.close?.();
       decoded.delete(index);
     }
@@ -197,7 +196,7 @@ export function createScrollFilm(canvas, ambient, motion, {
 
   function advance(elapsed) {
     const displacement = position - target;
-    if (motion.matches ||
+    if (directScrub || motion.matches ||
         (Math.abs(displacement) < POSITION_EPSILON && Math.abs(velocity) < VELOCITY_EPSILON)) {
       position = target;
       velocity = 0;
@@ -210,12 +209,8 @@ export function createScrollFilm(canvas, ambient, motion, {
     const decay = Math.exp(-elapsed / SETTLE_TIME);
     const next = target + (displacement + drift * elapsed) * decay;
     velocity = (velocity - drift * elapsed / SETTLE_TIME) * decay;
-    const maxStep = maxVelocity * elapsed;
-    const step = Math.max(-maxStep, Math.min(maxStep, next - position));
-    const pacedPosition = position + step;
-    velocity = Math.max(-maxVelocity, Math.min(maxVelocity, velocity));
-    position = Math.max(openingFrame, Math.min(frameCount - 1, pacedPosition));
-    if (position !== pacedPosition) velocity = 0;
+    position = Math.max(openingFrame, Math.min(frameCount - 1, next));
+    if (position !== next) velocity = 0;
   }
 
   function render(now) {
@@ -256,11 +251,13 @@ export function createScrollFilm(canvas, ambient, motion, {
     const ahead = [current + direction * 3, current + direction * 4,
       current + direction * 5, current + direction * 6, current + direction * 7,
       destination, destination + direction, destination + direction * 2, current - direction * 3];
+    // Keep the closing shot ready even if the visitor scrolls straight to it.
+    if (directScrub) nearby.splice(1, 0, lastSheet);
     queueSheets(motion.matches ? [current] : nearby, motion.matches ? [] : ahead);
 
     if (decoded.has(current)) {
       draw(frame);
-    } else if (drawn >= 0) {
+    } else if (!directScrub && drawn >= 0) {
       // Keep moving through available frames while a requested sheet decodes.
       const step = Math.sign(frame - drawn);
       for (let offset = 1; step && offset <= 7; offset++) {

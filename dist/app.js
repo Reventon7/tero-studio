@@ -119,7 +119,7 @@ const clampProgress = value => Math.max(0, Math.min(1, value));
 function prepareDentist() {
   dentistFilm ??= createScrollFilm($('#dentist-film'), $('#dentist-ambient'), motion, {
     directory: 'dentist-final-48', frameCount: dentistFrameCount, widths: [1152, 768],
-    maxPlaybackRate: 1, onFrame: updateDentistCopy
+    directScrub: true, onFrame: updateDentistCopy
   });
 }
 
@@ -133,7 +133,10 @@ function scrollState() {
   const blendStart = dentistStart - height * .52;
   const blend = clampProgress((y - blendStart) / Math.max(1, dentistStart - blendStart));
   const progress = clampProgress((y - heroStart) / Math.max(1, blendStart - heroStart - height * .12));
-  const clinicalProgress = clampProgress((y - dentistStart) / Math.max(1, (dentistStory.offsetHeight - height) * .92));
+  const stageRelease = experience.offsetTop + experience.offsetHeight - height;
+  // Show the final frame while the stage is still pinned, before the next section enters.
+  const dentistEnd = stageRelease - height * .5;
+  const clinicalProgress = clampProgress((y - dentistStart) / Math.max(1, dentistEnd - dentistStart));
   const overFilm = y < experience.offsetTop + experience.offsetHeight - header.offsetHeight;
   const lightSurface = !overFilm && lightSections.some(section => {
     const rect = section.getBoundingClientRect();
@@ -157,7 +160,7 @@ function scrollState() {
   const still = progress < .22 ? 0 : progress < .46 ? .34 : .88;
   heroFilm.setProgress(motion.matches ? still : progress);
   if (y >= blendStart - height * .7) prepareDentist();
-  const clinicalStill = clinicalProgress < ergonomicFrame / (dentistFrameCount - 1) ? 0 : .86;
+  const clinicalStill = clinicalProgress < ergonomicFrame / (dentistFrameCount - 1) ? 0 : 1;
   dentistFilm?.setProgress(motion.matches ? clinicalStill : clinicalProgress);
 }
 addEventListener('scroll', () => {
