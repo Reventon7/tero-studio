@@ -131,10 +131,37 @@
 
 .film-experience { position: relative; background: #0b100f; }
 .film-experience > .film-stage { z-index: 1; }
+.film-stage { background: #080a0a; }
 .film-experience > .film-track { background: transparent; pointer-events: none; }
 .film-experience > .film-stage + .film-track { margin-top: -100svh; }
 .film-panel { position: absolute; inset: 0; background: #0b100f; }
-.film-panel--dentist { opacity: 0; visibility: hidden; }
+.film-panel--dentist { opacity: 0; visibility: hidden; overflow: hidden; }
+@media (prefers-reduced-motion: no-preference) {
+  #experience.film-track { height: 486svh; }
+  .film-panel--hero {
+    transform: translateY(calc(var(--hero-retreat, 0) * -12svh)) scale(calc(1 - var(--hero-retreat, 0) * .09));
+  }
+  .film-panel--dentist {
+    --arrival-scale: .48;
+    border-radius: calc(8px * (1 - var(--dentist-push, 0)));
+    transform: translateY(calc(32svh * (1 - var(--dentist-arrival, 0))))
+      scale(calc(var(--arrival-scale) + (1 - var(--arrival-scale)) * var(--dentist-push, 0)));
+  }
+}
+@media (max-width: 760px) and (prefers-reduced-motion: no-preference) {
+  #experience.film-track { height: 466svh; }
+  .film-panel--dentist { --arrival-scale: .66; }
+}
+
+.lighting-track { background: #15222d; }
+@media (prefers-reduced-motion: no-preference) {
+  .lighting-track::after { content: ''; display: block; height: 300px; }
+  .lighting-track > .lighting { position: sticky; top: var(--light-pin-top, 76px); }
+}
+@media (min-width: 761px) and (prefers-reduced-motion: no-preference) {
+  .lighting.section-wrap { padding-block: clamp(26px, 5svh, 60px); }
+  .lighting .light-layout { padding-block: clamp(25px, 5svh, 65px) 24px; }
+}
 .film-panel::after {
   content: "";
   position: absolute;
