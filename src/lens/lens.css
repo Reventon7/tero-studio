@@ -7,7 +7,6 @@
   --lens-ink: #f2f1ed;
   --lens-muted: #a0a0a0;
   --lens-line: #ffffff20;
-  --lens-mono: 'IBM Plex Mono', ui-monospace, monospace;
   background: #080a0b;
   color: var(--lens-ink);
   padding: clamp(64px, 8.5vw, 150px) var(--pad);
@@ -21,12 +20,7 @@
   margin-bottom: clamp(35px, 5vw, 96px);
 }
 .lens-intro h2 {
-  font-family: var(--sans);
   font-size: clamp(48px, 5.3vw, 128px);
-  font-weight: 300;
-  letter-spacing: -.075em;
-  line-height: .98;
-  text-wrap: balance;
 }
 .lens-intro p {
   color: var(--lens-muted);
@@ -36,11 +30,11 @@
 }
 .lens-label, .lens-badge {
   color: var(--lens-muted);
-  font-family: var(--lens-mono);
+  font-family: var(--sans);
   font-size: clamp(10px, .84vw, 17px);
-  font-weight: 500;
+  font-weight: 600;
   line-height: 1.45;
-  letter-spacing: .16em;
+  letter-spacing: .12em;
   text-transform: uppercase;
 }
 .lens-intro .lens-label { display: block; margin-bottom: 18px; }
@@ -155,7 +149,7 @@
   border-radius: 100px;
   border: 1px solid #ffffff32;
   color: #ceced0;
-  font: 500 clamp(13px, 1.05vw, 23px) / 1.2 var(--lens-mono);
+  font: 500 clamp(13px, 1.05vw, 23px) / 1.2 var(--sans);
   white-space: nowrap;
   transition: background-color 170ms ease, border-color 170ms ease, color 170ms ease, transform 170ms ease;
   pointer-events: none;
@@ -164,7 +158,7 @@
 .lens-pill:active > span { transform: scale(.98); }
 .lens-pill input:checked + span { background: #f2f1ed; color: #121415; border-color: #f2f1ed; }
 .lens-pill input:focus-visible + span { outline: 2px solid var(--lens-ink); outline-offset: 3px; }
-.lens-light-pill > span { font-family: var(--sans); padding-inline: clamp(12px, 1.05vw, 26px); }
+.lens-light-pill > span { padding-inline: clamp(12px, 1.05vw, 26px); }
 .lens-light-pill input:checked + span { background: #ffffff07; border-color: #ffffffaa; color: var(--lens-ink); }
 .lens-light-pill i { inline-size: .55em; block-size: .55em; border-radius: 50%; background: #fcf3dc; border: 1px solid #918f88; }
 .lens-light-pill i[data-tone='amber'] { background: #e6a245; border-color: #e6a245; }
@@ -188,7 +182,7 @@
 
 @media (max-width: 950px) {
   .lens-intro, .lens-layout { grid-template-columns: 1fr; }
-  .lens-intro h2 { max-width: 16ch; text-wrap: initial; }
+  .lens-intro h2 { max-width: 16ch; }
   .lens-intro p { max-width: 52ch; }
 }
 @media (max-width: 560px) {
