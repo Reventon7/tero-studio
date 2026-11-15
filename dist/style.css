@@ -168,6 +168,14 @@
   background: radial-gradient(ellipse at 0% 36%, #0b0d10de, #0b0d1059 22%, transparent 53%);
 }
 
+:root {
+  --sans: 'Inter', 'Manrope', Arial, sans-serif;
+  --serif: 'Cormorant Garamond', 'Instrument Serif', Georgia, serif;
+}
+
+h1, h2, h3 { font-family: var(--serif); font-weight: 500; }
+h1 em, h2 em { font-weight: 500; }
+
 .hero-chapter-description { min-height: 3.7em; }
 
 .hero-scene-link {
