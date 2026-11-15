@@ -69,8 +69,19 @@
   pointer-events: none;
   user-select: none;
 }
-.lens-photo-base { width: 100%; height: 100%; filter: brightness(.72) saturate(.63); }
-.lens-photo-detail { max-width: none; transform-origin: top left; }
+.lens-photo-base { width: 100%; height: 100%; filter: brightness(.54) saturate(.72); }
+.lens-photo-detail {
+  max-width: none;
+  transform-origin: top left;
+  filter: sepia(0) saturate(.86) hue-rotate(0deg) brightness(.85) contrast(1.02);
+  transition: filter 300ms ease;
+}
+.lens-glass[data-light='daylight'] .lens-photo-detail {
+  filter: sepia(0) saturate(.84) hue-rotate(0deg) brightness(1.03) contrast(1.055);
+}
+.lens-glass[data-light='amber'] .lens-photo-detail {
+  filter: sepia(.88) saturate(1.4) hue-rotate(-6deg) brightness(.86) contrast(1.06);
+}
 .lens-badge {
   position: absolute;
   z-index: 2;
@@ -88,13 +99,13 @@
   z-index: 1;
   top: 0;
   left: 0;
-  width: 42%;
+  width: 44%;
   aspect-ratio: 1;
   border-radius: 50%;
   overflow: hidden;
   touch-action: none;
   cursor: grab;
-  box-shadow: 0 10px 36px #0007, 0 0 0 1px #ffffff40;
+  box-shadow: 0 9px 24px #0006, 0 0 0 1px #ffffff37;
 }
 .lens-glass[data-ready='false'] { visibility: hidden; }
 .lens-glass[data-dragging] { cursor: grabbing; }
@@ -104,22 +115,27 @@
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  box-shadow: inset 0 0 0 clamp(9px, 1.16vw, 22px) #111619b9, inset 0 0 0 1px #ffffff52;
+  box-shadow: inset 0 0 0 clamp(7px, .83vw, 21px) #15191bce;
   pointer-events: none;
 }
-.lens-light { position: absolute; inset: 0; opacity: 0; transition: opacity 300ms ease; pointer-events: none; }
-.lens-light-day { background: radial-gradient(circle, #e6f4ff85, #e4f3ff40 37%, #eff8ff00 72%); mix-blend-mode: screen; }
-.lens-light-amber { background: radial-gradient(circle, #ffd49cb3, #ffc7825e 42%, #fcc47d00 74%); mix-blend-mode: hard-light; }
-.lens-glass[data-light='daylight'] .lens-light-day,
-.lens-glass[data-light='amber'] .lens-light-amber { opacity: 1; }
+.lens-light-falloff {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle closest-side, transparent 44%, #0003 88%, #0007);
+  opacity: 0;
+  transition: opacity 300ms ease;
+  pointer-events: none;
+}
+.lens-glass[data-light='daylight'] .lens-light-falloff { opacity: .72; }
+.lens-glass[data-light='amber'] .lens-light-falloff { opacity: 1; }
 .lens-reticle { position: absolute; inset: 0; pointer-events: none; }
 .lens-reticle::before, .lens-reticle::after {
   content: '';
   position: absolute;
   top: 50%; left: 50%;
-  width: 18px; height: 1px;
-  background: #fff;
-  box-shadow: 0 0 3px #0009;
+  width: 15px; height: 1px;
+  background: #fff9;
+  box-shadow: 0 0 2px #0007;
   transform: translate(-50%, -50%);
 }
 .lens-reticle::after { transform: translate(-50%, -50%) rotate(90deg); }
@@ -149,6 +165,7 @@
 .lens-pill input:checked + span { background: #f2f1ed; color: #121415; border-color: #f2f1ed; }
 .lens-pill input:focus-visible + span { outline: 2px solid var(--lens-ink); outline-offset: 3px; }
 .lens-light-pill > span { font-family: var(--sans); padding-inline: clamp(12px, 1.05vw, 26px); }
+.lens-light-pill input:checked + span { background: #ffffff07; border-color: #ffffffaa; color: var(--lens-ink); }
 .lens-light-pill i { inline-size: .55em; block-size: .55em; border-radius: 50%; background: #fcf3dc; border: 1px solid #918f88; }
 .lens-light-pill i[data-tone='amber'] { background: #e6a245; border-color: #e6a245; }
 .lens-light-pill i[data-tone='none'] { background: transparent; border-color: #858585; }
@@ -181,5 +198,5 @@
   .lens-glass { width: 69%; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .lens-pill > span, .lens-light { transition: none; }
+  .lens-pill > span, .lens-light-falloff, .lens-photo-detail { transition: none; }
 }

@@ -15,12 +15,12 @@ type Magnification = {
 
 const options = [
   { id: 'naked', label: '1.0× naked eye', family: '', field: 'Full scene', depth: 'Unlimited', suitedTo: 'Orientation and patient conversation', scale: 1 },
-  { id: 'prism-35', label: '3.5×', family: 'TERO Prism', field: '70 mm', depth: '90 mm', suitedTo: 'Restorative detail with an upright posture', scale: 2 },
-  { id: 'prism-45', label: '4.5×', family: 'TERO Prism', field: '55 mm', depth: '60 mm', suitedTo: 'Endodontic access and canal location', scale: 2.55 },
-  { id: 'prism-55', label: '5.5×', family: 'TERO Prism', field: '40 mm', depth: '35 mm', suitedTo: 'Microsurgery and periodontal plastics', scale: 3.1 },
-  { id: 'galilean-25', label: '2.5×', family: 'TERO Galilean', field: '100 mm', depth: '140 mm', suitedTo: 'Hygiene, exams and general procedures', scale: 1.45 },
-  { id: 'galilean-30', label: '3.0×', family: 'TERO Galilean', field: '85 mm', depth: '110 mm', suitedTo: 'Everyday restorative dentistry', scale: 1.7 },
-  { id: 'galilean-35', label: '3.5×', family: 'TERO Galilean', field: '65 mm', depth: '80 mm', suitedTo: 'Crown preparation and fine margins', scale: 2 },
+  { id: 'prism-35', label: '3.5×', family: 'TERO Prism', field: '70 mm', depth: '90 mm', suitedTo: 'Restorative detail with an upright posture', scale: 3.5 },
+  { id: 'prism-45', label: '4.5×', family: 'TERO Prism', field: '55 mm', depth: '60 mm', suitedTo: 'Endodontic access and canal location', scale: 4.5 },
+  { id: 'prism-55', label: '5.5×', family: 'TERO Prism', field: '40 mm', depth: '35 mm', suitedTo: 'Microsurgery and periodontal plastics', scale: 5.5 },
+  { id: 'galilean-25', label: '2.5×', family: 'TERO Galilean', field: '100 mm', depth: '140 mm', suitedTo: 'Hygiene, exams and general procedures', scale: 2.5 },
+  { id: 'galilean-30', label: '3.0×', family: 'TERO Galilean', field: '85 mm', depth: '110 mm', suitedTo: 'Everyday restorative dentistry', scale: 3 },
+  { id: 'galilean-35', label: '3.5×', family: 'TERO Galilean', field: '65 mm', depth: '80 mm', suitedTo: 'Crown preparation and fine margins', scale: 3.5 },
 ] as const satisfies readonly Magnification[];
 
 const families = ['', 'TERO Prism', 'TERO Galilean'] as const;
@@ -31,7 +31,7 @@ const lights = [
 ] as const;
 type Light = typeof lights[number]['id'];
 const photo = 'assets/dental-study-casts.webp';
-const defaultPosition = { x: .46, y: .52 };
+const defaultPosition = { x: .43, y: .48 };
 
 function LoupeViewer({ power, light }: { power: Magnification; light: Light }) {
   const viewer = useRef<HTMLDivElement>(null);
@@ -151,7 +151,7 @@ function LoupeViewer({ power, light }: { power: Magnification; light: Light }) {
   }
 
   return <div className="lens-viewer" ref={viewer}>
-    <img className="lens-photo lens-photo-base" src={photo} alt="Three white plaster dental casts on a gray work surface" width="1586" height="992" draggable={false} />
+    <img className="lens-photo lens-photo-base" src={photo} alt="A row of white plaster dental casts on a gray work surface" width="3200" height="2133" draggable={false} />
     <span className="lens-badge lens-badge-base">Naked eye</span>
     <span className="lens-badge lens-badge-guide"><span aria-hidden="true">✥</span> Drag the loupe</span>
     <div className="lens-glass" data-ready={ready} data-light={light} ref={glass} tabIndex={0} role="group"
@@ -159,8 +159,7 @@ function LoupeViewer({ power, light }: { power: Magnification; light: Light }) {
       onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}
       onLostPointerCapture={endDrag} onKeyDown={moveByKey}>
       <img className="lens-photo lens-photo-detail" ref={detail} src={photo} alt="" draggable={false} />
-      <span className="lens-light lens-light-day" aria-hidden="true" />
-      <span className="lens-light lens-light-amber" aria-hidden="true" />
+      <span className="lens-light-falloff" aria-hidden="true" />
       <span className="lens-reticle" aria-hidden="true" />
     </div>
   </div>;
