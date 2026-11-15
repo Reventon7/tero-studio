@@ -220,6 +220,8 @@
 }
 
 @media (min-width: 761px) and (min-aspect-ratio: 8/5) {
+  .film-panel--hero::after { background: none; }
+
   .film-panel--hero .hero-film {
     --hero-shot-width: 106%;
     --hero-shot-offset: 6%;
@@ -231,13 +233,13 @@
     mask-image: linear-gradient(90deg, transparent 4%, #000 10.5%);
   }
 
-  /* The clean edge strip follows the film's vertical framing and lighting. */
+  /* The floor patch keeps the same framing and lighting as the film. */
   .film-panel--hero .hero-film .film-ambient {
     display: block;
     inset: 0;
     width: var(--hero-shot-width);
     object-position: left center;
-    filter: blur(2px);
+    filter: none;
     transform: none;
     clip-path: inset(0 83% 0 0);
   }

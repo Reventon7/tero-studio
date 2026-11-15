@@ -23,8 +23,26 @@ export function createScrollFilm(canvas, ambient, motion, {
   const context = canvas.getContext('2d', { alpha: false });
   if (!context) return { setProgress() {} };
   const ambientLayout = matchMedia(ambientMedia);
+  if (compact && ambientStrip) {
+    ambient.width = 256;
+    ambient.height = 144;
+  }
   const stripLayout = ambientStrip && matchMedia(ambientStrip.media);
   const ambientContext = ambient.getContext('2d', { alpha: false });
+  const floorPatch = ambientStrip && document.createElement('canvas');
+  let floorContext, floorFade, floorY;
+  if (floorPatch) {
+    floorY = Math.round(ambient.height * ambientStrip.floor.top);
+    floorPatch.width = Math.round(ambient.width * ambientStrip.width);
+    floorPatch.height = ambient.height - floorY;
+    floorContext = floorPatch.getContext('2d');
+    if (floorContext) {
+      const fadeHeight = ambient.height * (ambientStrip.floor.fadeEnd - ambientStrip.floor.top);
+      floorFade = floorContext.createLinearGradient(0, 0, 0, fadeHeight);
+      floorFade.addColorStop(0, 'transparent');
+      floorFade.addColorStop(1, '#000');
+    }
+  }
 
   const downloads = new Map();
   const decoded = new Map();
@@ -120,6 +138,41 @@ export function createScrollFilm(canvas, ambient, motion, {
     }, 140);
   }
 
+  function drawAmbient(image, x, y) {
+    if (!stripLayout?.matches || !floorContext) {
+      ambientContext.drawImage(image, x, y, width, height, 0, 0, ambient.width, ambient.height);
+      return;
+    }
+
+    const { background, floor, width: stripWidth } = ambientStrip;
+    const tileWidth = Math.round(ambient.width * (background.right - background.left));
+    // Reflect the clean wall detail edge to edge, preserving the grain scale.
+    for (let offset = 0; offset < floorPatch.width; offset += tileWidth) {
+      const mirrored = Math.floor(offset / tileWidth) % 2 === 1;
+      ambientContext.save();
+      ambientContext.translate(offset + (mirrored ? tileWidth : 0), 0);
+      if (mirrored) ambientContext.scale(-1, 1);
+      ambientContext.drawImage(
+        image, x + width * background.left, y, width * tileWidth / ambient.width, height,
+        0, 0, tileWidth, ambient.height
+      );
+      ambientContext.restore();
+    }
+
+    // Copy a clean patch of floor at its original scale and vertical position.
+    // Blend only its upper edge into the dark background above.
+    const floorSourceY = height * floorY / ambient.height;
+    floorContext.globalCompositeOperation = 'copy';
+    floorContext.drawImage(
+      image, x + width * floor.left, y + floorSourceY, width * stripWidth, height - floorSourceY,
+      0, 0, floorPatch.width, floorPatch.height
+    );
+    floorContext.globalCompositeOperation = 'destination-in';
+    floorContext.fillStyle = floorFade;
+    floorContext.fillRect(0, 0, floorPatch.width, floorPatch.height);
+    ambientContext.drawImage(floorPatch, 0, floorY);
+  }
+
   function draw(frame, force = false) {
     const index = sheetAt(frame);
     const image = decoded.get(index);
@@ -129,10 +182,7 @@ export function createScrollFilm(canvas, ambient, motion, {
     const y = Math.floor(tile / 2) * height;
     context.drawImage(image, x, y, width, height, 0, 0, width, height);
     if (ambientContext && ambientLayout.matches) {
-      const strip = stripLayout?.matches ? ambientStrip : null;
-      const sourceX = strip ? x + Math.round(width * strip.left) : x;
-      const sourceWidth = strip ? Math.round(width * (strip.right - strip.left)) : width;
-      ambientContext.drawImage(image, sourceX, y, sourceWidth, height, 0, 0, ambient.width, ambient.height);
+      drawAmbient(image, x, y);
       ambient.classList.add('ready');
     }
     if (drawn < 0) canvas.classList.add('ready');
