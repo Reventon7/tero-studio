@@ -123,10 +123,10 @@
 }
 
 /* Give the longer dentist film roughly the same scroll distance per second as the hero. */
-.dentist-story { height: 520svh; scroll-margin-top: -100px; }
+.dentist-story { height: 710svh; scroll-margin-top: -100px; }
 
 @media (max-width: 760px) {
-  .dentist-story { height: 490svh; }
+  .dentist-story { height: 670svh; }
 }
 
 .film-experience { position: relative; background: #0b100f; }

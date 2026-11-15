@@ -91,12 +91,35 @@ const heroFilm = createScrollFilm($('#hero-film'), $('#hero-ambient'), motion, {
   onFrame: updateHeroCopy
 });
 let dentistFilm;
+const dentistFrameCount = 575;
+const ergonomicFrame = 416;
+const dentistCaption = dentistPanel.querySelector('.film-caption');
+const dentistTitle = $('#dentist-title');
+const dentistLead = dentistTitle.querySelector('span');
+const dentistEmphasis = dentistTitle.querySelector('em');
+const dentistDescription = dentistCaption.querySelector('.dentist-description');
+const dentistCopy = {
+  before: [dentistLead.textContent, dentistEmphasis.textContent, dentistDescription.textContent],
+  after: ['A more upright', 'working posture.', 'The TERO chair supports the arms as the loupes bring the working field into view with less forward lean.']
+};
+let dentistHasTero = false;
+
+function updateDentistCopy(frame) {
+  const hasTero = frame >= ergonomicFrame;
+  if (hasTero === dentistHasTero) return;
+  dentistHasTero = hasTero;
+  const [lead, emphasis, description] = hasTero ? dentistCopy.after : dentistCopy.before;
+  dentistLead.textContent = lead;
+  dentistEmphasis.textContent = emphasis;
+  dentistDescription.textContent = description;
+}
 
 const clampProgress = value => Math.max(0, Math.min(1, value));
 
 function prepareDentist() {
   dentistFilm ??= createScrollFilm($('#dentist-film'), $('#dentist-ambient'), motion, {
-    directory: 'dentist-final-48', frameCount: 575, widths: [1152, 768]
+    directory: 'dentist-final-48', frameCount: dentistFrameCount, widths: [1152, 768],
+    maxPlaybackRate: 1, onFrame: updateDentistCopy
   });
 }
 
@@ -134,7 +157,7 @@ function scrollState() {
   const still = progress < .22 ? 0 : progress < .46 ? .34 : .88;
   heroFilm.setProgress(motion.matches ? still : progress);
   if (y >= blendStart - height * .7) prepareDentist();
-  const clinicalStill = clinicalProgress < .35 ? 0 : clinicalProgress < .75 ? .55 : 1;
+  const clinicalStill = clinicalProgress < ergonomicFrame / (dentistFrameCount - 1) ? 0 : .86;
   dentistFilm?.setProgress(motion.matches ? clinicalStill : clinicalProgress);
 }
 addEventListener('scroll', () => {
