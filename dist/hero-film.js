@@ -9,10 +9,12 @@ const sheetAt = frame => Math.floor(Math.round(frame) / FRAMES_PER_SHEET);
 export function createScrollFilm(canvas, ambient, motion, {
   directory, frameCount, openingFrame = 0, widths = [1280, 832],
   ambientMedia = '(max-aspect-ratio: 8/5), (min-aspect-ratio: 21/9)', ambientStrip, onFrame,
-  settleTime = 95, preloadEnd = false
+  settleTime = 95, retainEndpoints = false
 }) {
   const lastSheet = sheetAt(frameCount - 1);
   const openingSheet = sheetAt(openingFrame);
+  // The pinned dentist sequence needs its first and last frames ready in both directions.
+  const endpointSheets = retainEndpoints ? [openingSheet, lastSheet] : [];
   const openingSheets = Array.from({ length: openingSheet + 1 }, (_, index) => index);
   const compact = matchMedia('(max-width: 760px)').matches;
   const width = widths[compact ? 1 : 0];
@@ -99,7 +101,7 @@ export function createScrollFilm(canvas, ambient, motion, {
   function trimCache() {
     for (const [index, image] of decoded) {
       if (decoded.size <= CACHE_LIMIT) return;
-      if (wanted.includes(index) || (preloadEnd && index === lastSheet)) continue;
+      if (wanted.includes(index) || endpointSheets.includes(index)) continue;
       image.close?.();
       decoded.delete(index);
     }
@@ -245,15 +247,12 @@ export function createScrollFilm(canvas, ambient, motion, {
     const frame = Math.round(position);
     const current = sheetAt(frame);
     const destination = sheetAt(target);
-    const nearby = [current, destination, current + direction, current - direction,
+    const nearby = [current, ...endpointSheets, destination, current + direction, current - direction,
       current + direction * 2, destination + direction, current - direction * 2];
     const ahead = [current + direction * 3, current + direction * 4,
       current + direction * 5, current + direction * 6, current + direction * 7,
       destination, destination + direction, destination + direction * 2, current - direction * 3];
-    // Keep the closing shot ready even if the visitor scrolls straight to it.
-    if (preloadEnd) nearby.splice(1, 0, lastSheet);
-    const stills = preloadEnd ? [current, lastSheet] : [current];
-    queueSheets(motion.matches ? stills : nearby, motion.matches ? [] : ahead);
+    queueSheets(motion.matches ? [current, ...endpointSheets] : nearby, motion.matches ? [] : ahead);
 
     if (decoded.has(current)) {
       draw(frame);

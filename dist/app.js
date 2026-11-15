@@ -135,25 +135,17 @@ const updateDentistCopy = animateChapters(dentistChapters);
 function prepareDentist() {
   dentistFilm ??= createScrollFilm($('#dentist-film'), $('#dentist-ambient'), motion, {
     directory: 'dentist-final-48', frameCount: dentistFrameCount, widths: [1152, 768],
-    settleTime: 48, preloadEnd: true, onFrame: updateDentistCopy
+    settleTime: 48, retainEndpoints: true, onFrame: updateDentistCopy
   });
 }
 
 function updateFilmHandoff(blend) {
   const complete = blend >= 1;
-  const retreat = motion.matches ? Number(complete) : easeProgress(blend / .53);
-  const arrival = motion.matches ? Number(complete) : easeProgress((blend - .22) / .32);
-  const push = motion.matches ? Number(complete) : easeProgress((blend - .57) / .43);
-  heroPanel.style.opacity = 1 - retreat;
-  dentistPanel.style.opacity = arrival;
-  stage.style.setProperty('--hero-retreat', retreat);
-  stage.style.setProperty('--dentist-arrival', arrival);
-  stage.style.setProperty('--dentist-push', push);
-  stage.style.setProperty('--hero-copy', 1 - (motion.matches ? retreat : easeProgress(blend / .35)));
-  stage.style.setProperty('--dentist-copy', motion.matches ? arrival : easeProgress((blend - .81) / .19));
-  heroPanel.style.visibility = retreat < 1 ? 'visible' : 'hidden';
-  dentistPanel.style.visibility = arrival > 0 ? 'visible' : 'hidden';
-  heroPanel.inert = retreat >= .5;
+  const wipe = motion.matches ? Number(complete) : blend;
+  stage.style.setProperty('--film-wipe', wipe);
+  heroPanel.style.visibility = complete ? 'hidden' : 'visible';
+  dentistPanel.style.visibility = wipe > 0 ? 'visible' : 'hidden';
+  heroPanel.inert = wipe > 0;
   dentistPanel.inert = !complete;
 }
 
@@ -206,7 +198,9 @@ function scrollState() {
   heroFilm.setProgress(motion.matches ? still : progress);
   if (y >= blendStart - height * .7) prepareDentist();
   const clinicalStill = clinicalProgress < ergonomicFrame / (dentistFrameCount - 1) ? 0 : 1;
-  dentistFilm?.setProgress(motion.matches ? clinicalStill : clinicalProgress, { immediate: y >= stageRelease });
+  dentistFilm?.setProgress(motion.matches ? clinicalStill : clinicalProgress, {
+    immediate: y <= dentistStart || y >= stageRelease
+  });
 }
 addEventListener('scroll', () => {
   if (scrollPending) return;
