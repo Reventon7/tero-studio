@@ -1,0 +1,185 @@
+@layer theme, utilities;
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities) source(none);
+@source './lens.tsx';
+
+.lens-section {
+  --lens-ink: #f2f1ed;
+  --lens-muted: #a0a0a0;
+  --lens-line: #ffffff20;
+  --lens-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  background: #080a0b;
+  color: var(--lens-ink);
+  padding: clamp(64px, 8.5vw, 150px) var(--pad);
+}
+.lens-inner { max-width: 2450px; margin-inline: auto; }
+.lens-intro {
+  display: grid;
+  grid-template-columns: minmax(0, 1.46fr) minmax(0, 1fr);
+  align-items: end;
+  gap: clamp(28px, 6vw, 120px);
+  margin-bottom: clamp(35px, 5vw, 96px);
+}
+.lens-intro h2 {
+  font-family: var(--sans);
+  font-size: clamp(48px, 5.3vw, 128px);
+  font-weight: 300;
+  letter-spacing: -.075em;
+  line-height: .98;
+  text-wrap: balance;
+}
+.lens-intro p {
+  color: var(--lens-muted);
+  font-size: clamp(16px, 1.6vw, 36px);
+  line-height: 1.62;
+  max-width: 34ch;
+}
+.lens-label, .lens-badge {
+  color: var(--lens-muted);
+  font-family: var(--lens-mono);
+  font-size: clamp(10px, .84vw, 17px);
+  font-weight: 500;
+  line-height: 1.45;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+.lens-intro .lens-label { display: block; margin-bottom: 18px; }
+.lens-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.82fr) minmax(0, 1fr);
+  align-items: start;
+  gap: clamp(26px, 3.25vw, 75px);
+}
+.lens-viewer {
+  position: relative;
+  aspect-ratio: 1.62;
+  max-block-size: 1000px;
+  background: #83878a;
+  border-radius: clamp(26px, 3vw, 48px);
+  isolation: isolate;
+  overflow: hidden;
+  user-select: none;
+}
+.lens-photo {
+  position: absolute;
+  inset: 0;
+  display: block;
+  object-fit: cover;
+  object-position: 50% 50%;
+  pointer-events: none;
+  user-select: none;
+}
+.lens-photo-base { width: 100%; height: 100%; filter: brightness(.72) saturate(.63); }
+.lens-photo-detail { max-width: none; transform-origin: top left; }
+.lens-badge {
+  position: absolute;
+  z-index: 2;
+  left: clamp(12px, 1.5vw, 32px);
+  border-radius: 100px;
+  padding: .62em 1.04em;
+  color: #eeece9;
+  background: #111315d9;
+  pointer-events: none;
+}
+.lens-badge-base { top: clamp(12px, 1.5vw, 32px); }
+.lens-badge-guide { bottom: clamp(12px, 1.5vw, 32px); }
+.lens-glass {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  left: 0;
+  width: 42%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  overflow: hidden;
+  touch-action: none;
+  cursor: grab;
+  box-shadow: 0 10px 36px #0007, 0 0 0 1px #ffffff40;
+}
+.lens-glass[data-ready='false'] { visibility: hidden; }
+.lens-glass[data-dragging] { cursor: grabbing; }
+.lens-glass:focus-visible { outline: 3px solid #fff; outline-offset: -5px; }
+.lens-glass::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 clamp(9px, 1.16vw, 22px) #111619b9, inset 0 0 0 1px #ffffff52;
+  pointer-events: none;
+}
+.lens-light { position: absolute; inset: 0; opacity: 0; transition: opacity 300ms ease; pointer-events: none; }
+.lens-light-day { background: radial-gradient(circle, #e6f4ff85, #e4f3ff40 37%, #eff8ff00 72%); mix-blend-mode: screen; }
+.lens-light-amber { background: radial-gradient(circle, #ffd49cb3, #ffc7825e 42%, #fcc47d00 74%); mix-blend-mode: hard-light; }
+.lens-glass[data-light='daylight'] .lens-light-day,
+.lens-glass[data-light='amber'] .lens-light-amber { opacity: 1; }
+.lens-reticle { position: absolute; inset: 0; pointer-events: none; }
+.lens-reticle::before, .lens-reticle::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 18px; height: 1px;
+  background: #fff;
+  box-shadow: 0 0 3px #0009;
+  transform: translate(-50%, -50%);
+}
+.lens-reticle::after { transform: translate(-50%, -50%) rotate(90deg); }
+.lens-controls { display: grid; gap: clamp(22px, 2.2vw, 48px); }
+.lens-fieldset { min-inline-size: 0; padding: 0; margin: 0; border: 0; }
+.lens-option-group { margin-top: clamp(13px, 1.25vw, 29px); }
+.lens-family { color: var(--lens-muted); margin-bottom: 8px; font-size: clamp(13px, 1.04vw, 22px); }
+.lens-pill { display: inline-grid; position: relative; cursor: pointer; }
+.lens-pill input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: inherit; }
+.lens-pill > span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .62em;
+  min-height: clamp(44px, 3.2vw, 74px);
+  padding-inline: clamp(15px, 1.35vw, 33px);
+  border-radius: 100px;
+  border: 1px solid #ffffff32;
+  color: #ceced0;
+  font: 500 clamp(13px, 1.05vw, 23px) / 1.2 var(--lens-mono);
+  white-space: nowrap;
+  transition: background-color 170ms ease, border-color 170ms ease, color 170ms ease, transform 170ms ease;
+  pointer-events: none;
+}
+.lens-pill:hover > span { border-color: #ffffff82; color: var(--lens-ink); }
+.lens-pill:active > span { transform: scale(.98); }
+.lens-pill input:checked + span { background: #f2f1ed; color: #121415; border-color: #f2f1ed; }
+.lens-pill input:focus-visible + span { outline: 2px solid var(--lens-ink); outline-offset: 3px; }
+.lens-light-pill > span { font-family: var(--sans); padding-inline: clamp(12px, 1.05vw, 26px); }
+.lens-light-pill i { inline-size: .55em; block-size: .55em; border-radius: 50%; background: #fcf3dc; border: 1px solid #918f88; }
+.lens-light-pill i[data-tone='amber'] { background: #e6a245; border-color: #e6a245; }
+.lens-light-pill i[data-tone='none'] { background: transparent; border-color: #858585; }
+.lens-data {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+  border: 1px solid var(--lens-line);
+  border-radius: 28px;
+  background: #0d0f10;
+}
+.lens-data > div { padding: clamp(13px, 1.4vw, 34px); }
+.lens-metric + .lens-metric { border-left: 1px solid var(--lens-line); }
+.lens-data dd { margin: .45em 0 0; }
+.lens-metric dd { font-size: clamp(18px, 1.55vw, 34px); font-weight: 500; letter-spacing: -.045em; }
+.lens-usage { grid-column: span 2; min-block-size: clamp(110px, 7.7vw, 225px); border-top: 1px solid var(--lens-line); }
+.lens-usage dd { font-size: clamp(14px, 1.12vw, 26px); color: #d6d5d1; line-height: 1.4; }
+.lens-usage small { display: block; margin-top: .43em; color: var(--lens-muted); font-size: .82em; }
+.lens-note { color: var(--lens-muted); line-height: 1.55; font-size: clamp(11px, .8vw, 15px); }
+
+@media (max-width: 950px) {
+  .lens-intro, .lens-layout { grid-template-columns: 1fr; }
+  .lens-intro h2 { max-width: 16ch; text-wrap: initial; }
+  .lens-intro p { max-width: 52ch; }
+}
+@media (max-width: 560px) {
+  .lens-intro { gap: 18px; }
+  .lens-intro h2 { font-size: clamp(36px, 10.4vw, 56px); }
+  .lens-viewer { aspect-ratio: 4 / 5; }
+  .lens-glass { width: 69%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lens-pill > span, .lens-light { transition: none; }
+}

@@ -1,5 +1,19 @@
 import {createScrollFilm} from './hero-film.js';
 
+const lensMount = document.querySelector('#lens-interactive');
+const lensObserver = new IntersectionObserver(async entries => {
+  if (!entries.some(entry => entry.isIntersecting)) return;
+  lensObserver.disconnect();
+  try {
+    const { mountLens } = await import('./lens.js');
+    mountLens(lensMount);
+  } catch (error) {
+    console.error('TERO comparison unavailable:', error);
+    lensMount.textContent = 'The interactive comparison could not load. Refresh to try again.';
+  }
+}, { rootMargin: '550px' });
+lensObserver.observe(lensMount);
+
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const motion=matchMedia('(prefers-reduced-motion: reduce)');
 const models={
@@ -12,17 +26,7 @@ const models={
 let selection={model:'ergo',magnification:'3.5'},imageRequests=new WeakMap(),toastTimer;
 function toast(message){clearTimeout(toastTimer);$('#toast').textContent=message;$('#toast').classList.add('show');toastTimer=setTimeout(()=>$('#toast').classList.remove('show'),3800)}
 async function swapPhoto(element,src,alt){const token={};imageRequests.set(element,token);const next=new Image();next.src=src;try{await next.decode();if(imageRequests.get(element)!==token)return;element.src=src;element.alt=alt;if(!motion.matches&&window.gsap)gsap.fromTo(element,{opacity:.35},{opacity:1,duration:.45,overwrite:true})}catch{toast('This image could not load. The previous view is still available.')}}
-let flowerRequest=0,previousMagnification=3.5;
-async function renderFlower(){
- const request=++flowerRequest,scale=Number(selection.magnification),family=selection.model;
- const source=`assets/flower-${family}-${selection.magnification}.webp`,next=new Image();next.src=source;
- try{await next.decode();if(request!==flowerRequest)return;
- const photo=$('#magnification-photo');photo.src=source;photo.alt=`${models[family].name} catalog orchid at ${scale} times magnification`;
- $('#flower-scale').textContent=selection.magnification+'×';$('#flower-caption').textContent=models[family].name+' · Catalog view';
- if(!motion.matches&&window.gsap)gsap.fromTo(photo,{scale:scale>previousMagnification?.86:1.14,opacity:.3},{scale:1,opacity:1,duration:.75,ease:'power3.out',overwrite:true});previousMagnification=scale;
- }catch{toast('The magnification preview could not load. Please try again.')}
-}
-function renderMagnifications(){const model=models[selection.model];$('#magnifications').replaceChildren(...model.sizes.map(size=>{const b=document.createElement('button');b.type='button';b.textContent=size+'×';b.setAttribute('aria-label',size+' times magnification');b.setAttribute('aria-pressed',size===selection.magnification);b.addEventListener('click',()=>{selection.magnification=size;$$('#magnifications button').forEach(button=>button.setAttribute('aria-pressed',button===b));$('#magnification-current').textContent=size+'×';renderFlower()});return b}));$('#magnification-current').textContent=selection.magnification+'×';renderFlower()}
+function renderMagnifications(){const model=models[selection.model];$('#magnifications').replaceChildren(...model.sizes.map(size=>{const b=document.createElement('button');b.type='button';b.textContent=size+'×';b.setAttribute('aria-label',size+' times magnification');b.setAttribute('aria-pressed',size===selection.magnification);b.addEventListener('click',()=>{selection.magnification=size;$$('#magnifications button').forEach(button=>button.setAttribute('aria-pressed',button===b));$('#magnification-current').textContent=size+'×'});return b}));$('#magnification-current').textContent=selection.magnification+'×'}
 function chooseModel(key){if(!models[key])return;selection.model=key;document.querySelector('.product-plate').classList.toggle('light-plate',['ergo-zm','galilean-hd'].includes(key));selection.magnification=models[key].sizes[0];const model=models[key],number=Object.keys(models).indexOf(key)+1;$$('[data-model]').forEach(b=>{const active=b.dataset.model===key;b.setAttribute('aria-selected',active);b.tabIndex=active?0:-1});$('#product-panel').setAttribute('aria-labelledby','tab-'+key);$('#product-title').innerHTML=model.title;$('#product-category').textContent=model.category;$('#product-description').textContent=model.description;$('#spec-family').textContent=model.family;$('#spec-range').textContent=model.sizes[0]+'× — '+model.sizes.at(-1)+'×';swapPhoto($('#product-photo'),`assets/${key}-clean.webp`,'TERO '+model.name+' loupes');renderMagnifications()}
 $$('[data-model]').forEach((button,index,array)=>{button.addEventListener('click',()=>chooseModel(button.dataset.model));button.addEventListener('keydown',e=>{let target;if(e.key==='ArrowRight')target=(index+1)%array.length;if(e.key==='ArrowLeft')target=(index+array.length-1)%array.length;if(e.key==='Home')target=0;if(e.key==='End')target=array.length-1;if(target!==undefined){e.preventDefault();chooseModel(array[target].dataset.model);array[target].focus()}})});renderMagnifications();
 $('#save-selection').addEventListener('click',()=>{const model=models[selection.model];const text=`TERO — YOUR OPTICAL SELECTION\n\nOptical family: ${model.name}\nMagnification: ${selection.magnification}x\n\nThis is a browsing selection, not an order or a confirmed configuration.\nConfirm frame compatibility, fit and working distance using the TERO catalog and your supplier.\n\nCatalog: TERO-2.pdf\n`;const url=URL.createObjectURL(new Blob([text],{type:'text/plain;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='TERO-my-selection.txt';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('Your TERO selection has been downloaded.');});

@@ -1,6 +1,6 @@
 {
   "framework": null,
-  "installCommand": "echo Static assets are included",
-  "buildCommand": "npm run check",
+  "installCommand": "npm ci",
+  "buildCommand": "npm run build",
   "outputDirectory": "dist"
 }

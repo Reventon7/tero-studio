@@ -8,3 +8,5 @@ design/qa/
 /dist/*-export.*
 /dist/film.html
 /dist/film.js
+/dist/lens.css
+/dist/lens.js
