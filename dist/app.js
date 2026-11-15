@@ -1,6 +1,8 @@
 import {createScrollFilm} from './hero-film.js';
 
 const lensMount = document.querySelector('#lens-interactive');
+const lensAnchor = '#through-the-lens';
+const openedAtLens = location.hash === lensAnchor;
 const lensObserver = new IntersectionObserver(async entries => {
   if (!entries.some(entry => entry.isIntersecting)) return;
   lensObserver.disconnect();
@@ -223,7 +225,12 @@ scrollState();
 
 async function initMotion(){await document.fonts.ready;if(!window.gsap||!window.ScrollTrigger)return;gsap.registerPlugin(ScrollTrigger);const mm=gsap.matchMedia();mm.add('(prefers-reduced-motion: no-preference)',()=>{gsap.from('.site-header',{y:-12,autoAlpha:0,duration:.65,ease:'power3.out'});$$('.reveal').forEach(el=>gsap.from(el,{y:35,autoAlpha:0,duration:.9,ease:'power3.out',scrollTrigger:{trigger:el,start:'top 90%',once:true}}));gsap.to('.craft-media',{yPercent:8,ease:'none',scrollTrigger:{trigger:'.craft',start:'top bottom',end:'bottom top',scrub:1}});});
  const statement=$('#manifesto-text'),words=statement.textContent.trim().split(/\s+/);statement.setAttribute('aria-label',words.join(' '));statement.innerHTML=words.map(w=>`<span aria-hidden="true">${w}</span>`).join(' ');const spans=[...statement.children];ScrollTrigger.create({trigger:statement,start:'top 85%',end:'bottom 40%',onUpdate:self=>spans.forEach((s,i)=>s.classList.toggle('lit',motion.matches||i/spans.length<self.progress+.08))});if(motion.matches)spans.forEach(s=>s.classList.add('lit'));ScrollTrigger.refresh();window.addEventListener('pagehide',()=>mm.revert(),{once:true})}
-initMotion();
+initMotion().then(() => {
+  // ScrollTrigger's initial refresh can interrupt the browser's smooth fragment scroll.
+  if (openedAtLens && location.hash === lensAnchor && performance.getEntriesByType('navigation')[0]?.type === 'navigate') {
+    document.querySelector(lensAnchor).scrollIntoView({ behavior: 'instant' });
+  }
+});
 const lightObserver = new IntersectionObserver(async entries => {
   if (!entries.some(entry => entry.isIntersecting)) return;
   lightObserver.disconnect();
