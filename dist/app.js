@@ -99,6 +99,7 @@ function animateChapters(group) {
 const updateHeroCopy = animateChapters(heroPanel.querySelector('.film-chapters'));
 
 const heroFilm = createScrollFilm($('#hero-film'), $('#hero-ambient'), motion, {
+  media: 'scrub-1440-v1.mp4',
   directory: 'hero-magnific-hd-48', frameCount: 576, openingFrame: 64,
   widths: [1920, 832],
   ambientMedia: '(max-width: 760px), (max-aspect-ratio: 3/2), (min-aspect-ratio: 8/5)',
@@ -118,6 +119,7 @@ const updateDentistCopy = animateChapters(dentistChapters);
 
 function prepareDentist() {
   dentistFilm ??= createScrollFilm($('#dentist-film'), $('#dentist-ambient'), motion, {
+    media: 'scrub-720-v1.mp4',
     directory: 'dentist-final-48', frameCount: dentistFrameCount, widths: [1152, 768],
     settleTime: 48, retainEndpoints: true, onFrame: updateDentistCopy
   });

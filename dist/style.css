@@ -56,7 +56,8 @@
 }
 
 .hero-film img,
-.hero-film canvas {
+.hero-film canvas,
+.hero-film video {
   position: absolute;
   inset: 0;
   display: block;
@@ -65,8 +66,8 @@
   object-fit: cover;
 }
 
-.hero-film canvas { visibility: hidden; }
-.hero-film canvas.ready { visibility: visible; }
+.hero-film :is(canvas, video) { visibility: hidden; }
+.hero-film :is(canvas, video).ready { visibility: visible; }
 .hero-film:has(.film-frames.ready) img { visibility: hidden; }
 .hero-film .film-ambient { display: none; }
 

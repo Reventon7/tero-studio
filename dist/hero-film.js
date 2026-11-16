@@ -1,43 +1,17 @@
 const FRAME_RATE = 48;
+const VIDEO_RATE = 24;
 const FRAMES_PER_SHEET = 4;
 const NETWORK_LIMIT = 4;
 const BLOB_LIMIT = 15;
-const GUIDE_STEP = 3;
-const GUIDE_COLUMNS = 12;
-const GUIDE_WIDTH = 256;
-const GUIDE_HEIGHT = 144;
 const MAX_SCRUB_GAP = FRAME_RATE;
 const POSITION_EPSILON = .15;
 const VELOCITY_EPSILON = .002;
 const sheetAt = frame => Math.floor(Math.round(frame) / FRAMES_PER_SHEET);
 
-export function createScrollFilm(canvas, ambient, motion, {
-  directory, frameCount, openingFrame = 0, widths = [1280, 832],
-  ambientMedia = '(max-aspect-ratio: 8/5), (min-aspect-ratio: 21/9)', ambientStrip, onFrame,
-  settleTime = 95, retainEndpoints = false
-}) {
-  const lastSheet = sheetAt(frameCount - 1);
-  const openingSheet = sheetAt(openingFrame);
-  // The pinned dentist sequence needs its first and last frames ready in both directions.
-  const endpointSheets = retainEndpoints ? [openingSheet, lastSheet] : [];
-  const network = navigator.connection;
-  const compact = matchMedia('(max-width: 1040px)').matches ||
-    (navigator.deviceMemory > 0 && navigator.deviceMemory <= 4) ||
-    network?.saveData || /2g/.test(network?.effectiveType ?? '');
-  const decodeLimit = compact ? 1 : 2;
-  const width = widths[compact ? 1 : 0];
-  const height = width * 9 / 16;
-  const prefix = compact ? 'compact' : 'frame';
-  const cacheLimit = Math.max(3, Math.min(7, Math.floor((compact ? 42 : 104) * 2 ** 20 / (width * height * 16))));
-  // Decode to the resolution the viewport can use. Keep the source tiers for wide/high-DPI screens.
-  const viewWidth = Math.ceil(innerWidth * Math.min(devicePixelRatio, 1.5) * 1.08 / 16) * 16;
-  canvas.width = Math.min(width, Math.max(768, viewWidth));
-  canvas.height = canvas.width * 9 / 16;
-  const context = canvas.getContext('2d', { alpha: false });
-  if (!context) return { setProgress() {}, setActive() {} };
+function createFilmBackdrop(ambient, ambientMedia = '(max-aspect-ratio: 8/5), (min-aspect-ratio: 21/9)', ambientStrip) {
   const ambientLayout = matchMedia(ambientMedia);
   if (ambientStrip) {
-    ambient.width = compact ? 256 : 960;
+    ambient.width = matchMedia('(max-width: 760px)').matches ? 256 : 960;
     ambient.height = ambient.width * 9 / 16;
   }
   const stripLayout = ambientStrip && matchMedia(ambientStrip.media);
@@ -57,6 +31,218 @@ export function createScrollFilm(canvas, ambient, motion, {
     }
   }
 
+  function drawAmbient(image, x, y, sourceWidth, sourceHeight) {
+    if (!stripLayout?.matches || !floorContext) {
+      ambientContext.drawImage(image, x, y, sourceWidth, sourceHeight, 0, 0, ambient.width, ambient.height);
+      return;
+    }
+
+    const { background, floor, width: stripWidth } = ambientStrip;
+    const tileWidth = Math.round(ambient.width * (background.right - background.left));
+    // Reflect the clean wall detail edge to edge, preserving the grain scale.
+    for (let offset = 0; offset < floorPatch.width; offset += tileWidth) {
+      const mirrored = Math.floor(offset / tileWidth) % 2 === 1;
+      ambientContext.save();
+      ambientContext.translate(offset + (mirrored ? tileWidth : 0), 0);
+      if (mirrored) ambientContext.scale(-1, 1);
+      ambientContext.drawImage(
+        image, x + sourceWidth * background.left, y, sourceWidth * tileWidth / ambient.width, sourceHeight,
+        0, 0, tileWidth, ambient.height
+      );
+      ambientContext.restore();
+    }
+
+    // Copy a clean patch of floor at its original scale and vertical position.
+    // Blend only its upper edge into the dark background above.
+    const floorSourceY = sourceHeight * floorY / ambient.height;
+    floorContext.globalCompositeOperation = 'copy';
+    floorContext.drawImage(
+      image, x + sourceWidth * floor.left, y + floorSourceY, sourceWidth * stripWidth, sourceHeight - floorSourceY,
+      0, 0, floorPatch.width, floorPatch.height
+    );
+    floorContext.globalCompositeOperation = 'destination-in';
+    floorContext.fillStyle = floorFade;
+    floorContext.fillRect(0, 0, floorPatch.width, floorPatch.height);
+    ambientContext.drawImage(floorPatch, 0, floorY);
+  }
+
+  return {
+    draw(image, x, y, width, height) {
+      if (!ambientContext || !ambientLayout.matches) return;
+      drawAmbient(image, x, y, width, height);
+      if (!ambient.classList.contains('ready')) ambient.classList.add('ready');
+    },
+    onLayoutChange(callback) {
+      ambientLayout.addEventListener('change', callback);
+      stripLayout?.addEventListener('change', callback);
+    }
+  };
+}
+
+export function createScrollFilm(canvas, ambient, motion, options) {
+  const video = document.createElement('video');
+  if (!options.media || !video.canPlayType('video/mp4; codecs="avc1.640028"')) {
+    return createSheetFilm(canvas, ambient, motion, options);
+  }
+
+  const { directory, media, frameCount, openingFrame = 0, onFrame, ambientMedia, ambientStrip, settleTime = 95 } = options;
+  const backdrop = createFilmBackdrop(ambient, ambientMedia, ambientStrip);
+  const toTime = frame => Math.floor(frame / 2) / VIDEO_RATE + .004;
+  const introEnd = openingFrame / FRAME_RATE;
+  const lastTime = toTime(frameCount - 1);
+  let active = true;
+  let opening = Boolean(openingFrame) && !motion.matches;
+  let introStarted = false;
+  let queued = 0;
+  let previousTick = 0;
+  let position = introEnd;
+  let target = introEnd;
+  let latestProgress = 0;
+  let publishedFrame = -1;
+  let fallback;
+
+  video.className = 'film-frames';
+  video.setAttribute('aria-hidden', 'true');
+  video.muted = true;
+  video.defaultMuted = true;
+  video.playsInline = true;
+  video.disablePictureInPicture = true;
+  video.preload = 'none';
+  canvas.after(video);
+
+  function publish(mediaTime) {
+    if (!active || video.readyState < 2) return;
+    const sourceFrame = Math.floor(mediaTime * VIDEO_RATE + .02);
+    const frame = sourceFrame === Math.floor((frameCount - 1) / 2) ? frameCount - 1 : sourceFrame * 2;
+    if (frame === publishedFrame) return;
+    publishedFrame = frame;
+    backdrop.draw(video, 0, 0, video.videoWidth, video.videoHeight);
+    video.classList.add('ready');
+    canvas.dataset.frame = String(frame);
+    canvas.dataset.quality = 'native';
+    onFrame?.(frame);
+  }
+
+  function schedule() {
+    if (active && !fallback && !queued) queued = requestAnimationFrame(update);
+  }
+
+  function update(now) {
+    queued = 0;
+    if (!active || fallback || !video.videoWidth) return;
+    if (opening) {
+      if (!introStarted && video.readyState >= 2) {
+        introStarted = true;
+        video.play().catch(() => { opening = false; schedule(); });
+      }
+      if (!video.paused && video.currentTime < introEnd) {
+        if (publishedFrame < 0 || !video.requestVideoFrameCallback) publish(video.currentTime);
+        schedule();
+        return;
+      }
+      if (video.currentTime >= introEnd) {
+        opening = false;
+        video.pause();
+      } else return;
+    }
+
+    if (video.seeking) return;
+    const elapsed = previousTick ? Math.min(80, now - previousTick) : 17;
+    previousTick = now;
+    const delta = target - position;
+    const factor = motion.matches ? 1 : 1 - Math.exp(-elapsed / (settleTime * .46));
+    position = Math.abs(delta) <= 1 / FRAME_RATE ? target : position + delta * factor;
+    const time = Math.min(lastTime, Math.round(position * VIDEO_RATE) / VIDEO_RATE + .004);
+    if (Math.abs(video.currentTime - time) > .012) video.currentTime = time;
+    else if (video.readyState >= 2) publish(video.currentTime);
+    if (position !== target && !video.seeking) schedule();
+    if (position === target) previousTick = 0;
+  }
+
+  function watchFrame() {
+    video.requestVideoFrameCallback?.((_, { mediaTime }) => {
+      if (fallback) return;
+      if (!video.seeking && (opening ? introStarted : Math.abs(mediaTime - video.currentTime) < 1 / VIDEO_RATE)) {
+        publish(mediaTime);
+      }
+      watchFrame();
+    });
+  }
+  watchFrame();
+  video.addEventListener('loadeddata', schedule);
+  video.addEventListener('loadedmetadata', schedule);
+  video.addEventListener('seeked', () => {
+    if (!opening) publish(video.currentTime);
+    schedule();
+  });
+  video.addEventListener('playing', schedule);
+  video.addEventListener('error', () => {
+    if (fallback) return;
+    video.remove();
+    fallback = createSheetFilm(canvas, ambient, motion, options);
+    fallback.setActive(active);
+    fallback.setProgress(latestProgress, { immediate: true });
+  });
+  backdrop.onLayoutChange(() => {
+    if (active && !fallback && publishedFrame >= 0 && !video.seeking) {
+      backdrop.draw(video, 0, 0, video.videoWidth, video.videoHeight);
+    }
+  });
+
+  return {
+    setActive(value) {
+      if (active === value) return;
+      active = value;
+      if (fallback) return fallback.setActive(value);
+      if (active) schedule();
+      else {
+        video.pause();
+        cancelAnimationFrame(queued);
+        queued = previousTick = 0;
+      }
+    },
+    setProgress(progress, { immediate = false } = {}) {
+      latestProgress = progress;
+      if (fallback) return fallback.setProgress(progress, { immediate });
+      if (active && !video.getAttribute('src')) {
+        video.preload = 'auto';
+        video.src = new URL('./assets/' + directory + '/' + media, import.meta.url).href;
+      }
+      if (opening && (progress > .015 || motion.matches)) {
+        opening = false;
+        video.pause();
+      }
+      const time = toTime(openingFrame + progress * (frameCount - 1 - openingFrame));
+      if (time === target && (!immediate || position === time) && (introStarted || !opening)) return;
+      target = time;
+      if (immediate || motion.matches) position = time;
+      else if (Math.abs(target - position) > .72) position = target - Math.sign(target - position) * .72;
+      schedule();
+    }
+  };
+}
+
+function createSheetFilm(canvas, ambient, motion, {
+  directory, frameCount, openingFrame = 0, widths = [1280, 832],
+  ambientMedia = '(max-aspect-ratio: 8/5), (min-aspect-ratio: 21/9)', ambientStrip, onFrame,
+  settleTime = 95, retainEndpoints = false
+}) {
+  const lastSheet = sheetAt(frameCount - 1);
+  const openingSheet = sheetAt(openingFrame);
+  // The pinned dentist sequence needs its first and last frames ready in both directions.
+  const endpointSheets = retainEndpoints ? [openingSheet, lastSheet] : [];
+  const compact = matchMedia('(max-width: 760px)').matches;
+  const decodeLimit = compact ? 1 : 2;
+  const width = widths[compact ? 1 : 0];
+  const height = width * 9 / 16;
+  const prefix = compact ? 'compact' : 'frame';
+  const cacheLimit = Math.max(3, Math.min(7, Math.floor((compact ? 42 : 104) * 2 ** 20 / (width * height * 16))));
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext('2d', { alpha: false });
+  if (!context) return { setProgress() {}, setActive() {} };
+  const backdrop = createFilmBackdrop(ambient, ambientMedia, ambientStrip);
+
   const compressed = new Map();
   const pending = new Map();
   const decoded = new Map();
@@ -75,30 +261,6 @@ export function createScrollFilm(canvas, ambient, motion, {
   let openingTime;
   let direction = 1;
   let retryTimer;
-  const guideEnd = Math.ceil((frameCount - 1) / GUIDE_STEP);
-  const guide = new Image();
-  const guideCanvas = document.createElement('canvas');
-  guideCanvas.className = 'film-frames';
-  guideCanvas.setAttribute('aria-hidden', 'true');
-  guideCanvas.width = GUIDE_WIDTH;
-  guideCanvas.height = GUIDE_HEIGHT;
-  const guideContext = guideCanvas.getContext('2d', { alpha: false });
-  let guideReady = false;
-  let guideRequested = false;
-  let ambientReady = false;
-
-  function prepareGuide() {
-    if (guideRequested || motion.matches || !guideContext) return;
-    guideRequested = true;
-    canvas.after(guideCanvas);
-    guide.fetchPriority = openingFrame ? 'high' : 'auto';
-    guide.src = new URL('./assets/' + directory + '/guide-v1.webp', import.meta.url).href;
-    guide.decode().then(() => {
-      guideReady = true;
-      schedule();
-    }).catch(() => { /* Full-resolution sheets remain available. */ });
-  }
-
   function download(index, priority) {
     const controller = new AbortController();
     pending.set(index, controller);
@@ -125,11 +287,7 @@ export function createScrollFilm(canvas, ambient, motion, {
 
   async function decode(blob) {
     if (typeof createImageBitmap === 'function') {
-      try {
-        return canvas.width < width
-          ? await createImageBitmap(blob, { resizeWidth: canvas.width * 2, resizeHeight: canvas.height * 2, resizeQuality: 'medium' })
-          : await createImageBitmap(blob);
-      } catch { /* Use the image decoder. */ }
+      try { return await createImageBitmap(blob); } catch { /* Use the image decoder. */ }
     }
     const image = new Image();
     const url = URL.createObjectURL(blob);
@@ -198,78 +356,23 @@ export function createScrollFilm(canvas, ambient, motion, {
     }
   }
 
-  function drawAmbient(image, x, y, sourceWidth, sourceHeight) {
-    if (!stripLayout?.matches || !floorContext) {
-      ambientContext.drawImage(image, x, y, sourceWidth, sourceHeight, 0, 0, ambient.width, ambient.height);
-      return;
-    }
-
-    const { background, floor, width: stripWidth } = ambientStrip;
-    const tileWidth = Math.round(ambient.width * (background.right - background.left));
-    // Reflect the clean wall detail edge to edge, preserving the grain scale.
-    for (let offset = 0; offset < floorPatch.width; offset += tileWidth) {
-      const mirrored = Math.floor(offset / tileWidth) % 2 === 1;
-      ambientContext.save();
-      ambientContext.translate(offset + (mirrored ? tileWidth : 0), 0);
-      if (mirrored) ambientContext.scale(-1, 1);
-      ambientContext.drawImage(
-        image, x + sourceWidth * background.left, y, sourceWidth * tileWidth / ambient.width, sourceHeight,
-        0, 0, tileWidth, ambient.height
-      );
-      ambientContext.restore();
-    }
-
-    // Copy a clean patch of floor at its original scale and vertical position.
-    // Blend only its upper edge into the dark background above.
-    const floorSourceY = sourceHeight * floorY / ambient.height;
-    floorContext.globalCompositeOperation = 'copy';
-    floorContext.drawImage(
-      image, x + sourceWidth * floor.left, y + floorSourceY, sourceWidth * stripWidth, sourceHeight - floorSourceY,
-      0, 0, floorPatch.width, floorPatch.height
-    );
-    floorContext.globalCompositeOperation = 'destination-in';
-    floorContext.fillStyle = floorFade;
-    floorContext.fillRect(0, 0, floorPatch.width, floorPatch.height);
-    ambientContext.drawImage(floorPatch, 0, floorY);
-  }
-
   function draw(frame, force = false) {
     const index = sheetAt(frame);
     const sheet = decoded.get(index);
-    const sample = frame === frameCount - 1 ? guideEnd : Math.round(frame / GUIDE_STEP);
-    const visualFrame = sheet ? frame : Math.min(sample * GUIDE_STEP, frameCount - 1);
-    const image = sheet ?? (guideReady ? guide : null);
-    if (!image || (!force && visualFrame === drawn && (image === drawnSource || !sheet))) return;
-    const tile = sheet ? frame % FRAMES_PER_SHEET : sample;
-    const columns = sheet ? 2 : GUIDE_COLUMNS;
-    const sourceWidth = sheet ? (sheet.naturalWidth || sheet.width) / 2 : GUIDE_WIDTH;
-    const sourceHeight = sheet ? (sheet.naturalHeight || sheet.height) / 2 : GUIDE_HEIGHT;
-    const x = tile % columns * sourceWidth;
-    const y = Math.floor(tile / columns) * sourceHeight;
-    if (sheet) context.drawImage(image, x, y, sourceWidth, sourceHeight, 0, 0, canvas.width, canvas.height);
-    else guideContext.drawImage(image, x, y, sourceWidth, sourceHeight, 0, 0, GUIDE_WIDTH, GUIDE_HEIGHT);
-    if (ambientContext && ambientLayout.matches) {
-      drawAmbient(image, x, y, sourceWidth, sourceHeight);
-      if (!ambientReady) {
-        ambientReady = true;
-        ambient.classList.add('ready');
-      }
-    }
-    const quality = sheet ? 'full' : 'guide';
-    if (canvas.dataset.quality !== quality) {
-      canvas.classList.toggle('ready', Boolean(sheet));
-      guideCanvas.classList.toggle('ready', !sheet);
-      canvas.dataset.quality = quality;
-    }
-    canvas.dataset.frame = String(visualFrame);
-    drawn = visualFrame;
-    drawnSource = image;
-    // Captions follow the displayed frame even when the guide is active.
-    onFrame?.(visualFrame);
-    if (sheet) {
-      decoded.delete(index);
-      decoded.set(index, sheet);
-    }
+    if (!sheet || (!force && frame === drawn && sheet === drawnSource)) return;
+    const tile = frame % FRAMES_PER_SHEET;
+    const x = tile % 2 * width;
+    const y = Math.floor(tile / 2) * height;
+    context.drawImage(sheet, x, y, width, height, 0, 0, width, height);
+    backdrop.draw(sheet, x, y, width, height);
+    if (!canvas.classList.contains('ready')) canvas.classList.add('ready');
+    canvas.dataset.frame = String(frame);
+    canvas.dataset.quality = 'full';
+    drawn = frame;
+    drawnSource = sheet;
+    onFrame?.(frame);
+    decoded.delete(index);
+    decoded.set(index, sheet);
   }
 
   function advance(elapsed) {
@@ -296,7 +399,7 @@ export function createScrollFilm(canvas, ambient, motion, {
     if (opening) {
       const current = sheetAt(position);
       loadAround(current, current + 1);
-      if (guideReady || decoded.has(current)) {
+      if (decoded.has(current)) {
         const elapsed = openingTime === undefined ? 0 : Math.min(now - openingTime, 34);
         position = Math.min(openingFrame, position + elapsed * FRAME_RATE / 1000);
         draw(Math.floor(position));
@@ -324,8 +427,7 @@ export function createScrollFilm(canvas, ambient, motion, {
   function redrawAmbient() {
     if (active && drawn >= 0) draw(drawn, true);
   }
-  ambientLayout.addEventListener('change', redrawAmbient);
-  stripLayout?.addEventListener('change', redrawAmbient);
+  backdrop.onLayoutChange(redrawAmbient);
 
   return {
     setActive(value) {
@@ -349,7 +451,6 @@ export function createScrollFilm(canvas, ambient, motion, {
       drawnSource = undefined;
     },
     setProgress(progress, { immediate = false } = {}) {
-      if (active) prepareGuide();
       if (opening && (progress > .015 || motion.matches)) {
         opening = false;
         position = Math.max(position, openingFrame);
