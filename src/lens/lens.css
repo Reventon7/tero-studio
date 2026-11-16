@@ -61,8 +61,8 @@
 }
 .lens-photo-base { width: 100%; height: 100%; filter: brightness(.54) saturate(.72); }
 .lens-photo-detail {
-  max-width: none;
-  transform-origin: top left;
+  width: 100%;
+  height: 100%;
   filter: sepia(0) saturate(.86) hue-rotate(0deg) brightness(.85) contrast(1.02);
   transition: filter 300ms ease;
 }

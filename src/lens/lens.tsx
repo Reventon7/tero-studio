@@ -20,12 +20,14 @@ const lights = [
 ] as const;
 type Light = typeof lights[number]['id'];
 const photo = 'assets/dental-study-casts.webp';
-const defaultPosition = { x: .43, y: .48 };
+const detailPhoto = 'assets/dental-study-casts-detail.webp';
+const defaultPosition = { x: .46, y: .49 };
 
 function LoupeViewer({ power, light }: { power: Magnification; light: Light }) {
   const viewer = useRef<HTMLDivElement>(null);
   const glass = useRef<HTMLDivElement>(null);
-  const detail = useRef<HTMLImageElement>(null);
+  const base = useRef<HTMLImageElement>(null);
+  const detail = useRef<HTMLCanvasElement>(null);
   const scale = useMotionValue(power.scale);
   const reduced = useReducedMotion();
   const [ready, setReady] = useState(false);
@@ -36,7 +38,15 @@ function LoupeViewer({ power, light }: { power: Magnification; light: Light }) {
   useLayoutEffect(() => {
     const panel = viewer.current!;
     const circle = glass.current!;
-    const image = detail.current!;
+    const overview = base.current!;
+    const canvas = detail.current!;
+    const context = canvas.getContext('2d', { alpha: false });
+    if (!context) return;
+    const master = new Image();
+    master.decoding = 'async';
+    let detailReady = false;
+    let disposed = false;
+    let hasPainted = false;
     let width = 0, height = 0, radius = 0;
     let target = { x: 0, y: 0 };
     let request = 0;
@@ -45,7 +55,7 @@ function LoupeViewer({ power, light }: { power: Magnification; light: Light }) {
       y: Math.max(radius, Math.min(height - radius, y)),
     });
 
-    function paint() {
+    const paint = () => {
       request = 0;
       const point = position.current;
       const dx = target.x - point.x, dy = target.y - point.y;
@@ -54,10 +64,22 @@ function LoupeViewer({ power, light }: { power: Magnification; light: Light }) {
       point.y = settling ? point.y + dy * .68 : target.y;
       const zoom = scale.get();
       circle.style.transform = `translate3d(${point.x - radius}px, ${point.y - radius}px, 0)`;
-      // The source coordinate underneath the crosshair maps back to its center at any scale.
-      image.style.transform = `translate3d(${radius - point.x * zoom}px, ${radius - point.y * zoom}px, 0) scale(${zoom})`;
+      const image = detailReady ? master : overview;
+      if (image.naturalWidth && radius) {
+        // Match the overview's centered object-fit: cover, then sample only the area visible in the loupe.
+        const fit = Math.max(width / image.naturalWidth, height / image.naturalHeight);
+        const span = 2 * radius / (fit * zoom);
+        const x = image.naturalWidth / 2 + (point.x - width / 2) / fit - span / 2;
+        const y = image.naturalHeight / 2 + (point.y - height / 2) / fit - span / 2;
+        context.imageSmoothingQuality = 'high';
+        context.drawImage(image, x, y, span, span, 0, 0, canvas.width, canvas.height);
+        if (!hasPainted) {
+          hasPainted = true;
+          setReady(true);
+        }
+      }
       if (settling) schedule();
-    }
+    };
 
     function schedule() {
       if (!request) request = requestAnimationFrame(paint);
@@ -76,19 +98,27 @@ function LoupeViewer({ power, light }: { power: Magnification; light: Light }) {
       height = panel.clientHeight;
       radius = circle.offsetWidth / 2;
       if (!width || !height) return;
-      image.style.width = `${width}px`;
-      image.style.height = `${height}px`;
+      const pixels = Math.round(radius * 2 * Math.min(window.devicePixelRatio || 1, 2));
+      if (canvas.width !== pixels) canvas.width = canvas.height = pixels;
       target = constrain(width * relative.x, height * relative.y);
       position.current = { ...target };
       schedule();
-      setReady(true);
     }
 
     const observer = new ResizeObserver(measure);
     observer.observe(panel);
     measure();
+    overview.addEventListener('load', schedule);
+    master.src = detailPhoto;
+    master.decode().then(() => {
+      if (disposed) return;
+      detailReady = true;
+      schedule();
+    }).catch(() => { /* The overview still drives the loupe if the detail asset cannot load. */ });
     const unsubscribe = scale.on('change', schedule);
     return () => {
+      disposed = true;
+      overview.removeEventListener('load', schedule);
       observer.disconnect();
       unsubscribe();
       cancelAnimationFrame(request);
@@ -140,13 +170,13 @@ function LoupeViewer({ power, light }: { power: Magnification; light: Light }) {
   }
 
   return <div className="lens-viewer" ref={viewer}>
-    <img className="lens-photo lens-photo-base" src={photo} alt="A row of white plaster dental casts on a gray work surface" width="3200" height="2133" draggable={false} />
+    <img className="lens-photo lens-photo-base" ref={base} src={photo} alt="A row of white plaster dental casts on a gray work surface" width="3200" height="2133" draggable={false} />
     <span className="lens-badge lens-badge-guide"><span aria-hidden="true">✥</span> Drag the loupe</span>
     <div className="lens-glass" data-ready={ready} data-light={light} ref={glass} tabIndex={0} role="group"
       aria-label={`Loupe view at ${power.label}. Drag it, or use the arrow keys to move it.`}
       onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}
       onLostPointerCapture={endDrag} onKeyDown={moveByKey}>
-      <img className="lens-photo lens-photo-detail" ref={detail} src={photo} alt="" draggable={false} />
+      <canvas className="lens-photo lens-photo-detail" ref={detail} aria-hidden="true" />
       <span className="lens-light-falloff" aria-hidden="true" />
       <span className="lens-reticle" aria-hidden="true" />
     </div>
