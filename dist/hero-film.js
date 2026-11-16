@@ -1,7 +1,12 @@
 const FRAME_RATE = 48;
 const FRAMES_PER_SHEET = 4;
-const DECODE_LIMIT = 2;
-const CACHE_LIMIT = 8;
+const NETWORK_LIMIT = 4;
+const BLOB_LIMIT = 15;
+const GUIDE_STEP = 3;
+const GUIDE_COLUMNS = 12;
+const GUIDE_WIDTH = 256;
+const GUIDE_HEIGHT = 144;
+const MAX_SCRUB_GAP = FRAME_RATE;
 const POSITION_EPSILON = .15;
 const VELOCITY_EPSILON = .002;
 const sheetAt = frame => Math.floor(Math.round(frame) / FRAMES_PER_SHEET);
@@ -15,19 +20,25 @@ export function createScrollFilm(canvas, ambient, motion, {
   const openingSheet = sheetAt(openingFrame);
   // The pinned dentist sequence needs its first and last frames ready in both directions.
   const endpointSheets = retainEndpoints ? [openingSheet, lastSheet] : [];
-  const openingSheets = Array.from({ length: openingSheet + 1 }, (_, index) => index);
-  const compact = matchMedia('(max-width: 760px)').matches;
+  const network = navigator.connection;
+  const compact = matchMedia('(max-width: 1040px)').matches ||
+    (navigator.deviceMemory > 0 && navigator.deviceMemory <= 4) ||
+    network?.saveData || /2g/.test(network?.effectiveType ?? '');
+  const decodeLimit = compact ? 1 : 2;
   const width = widths[compact ? 1 : 0];
   const height = width * 9 / 16;
   const prefix = compact ? 'compact' : 'frame';
-  canvas.width = width;
-  canvas.height = height;
+  const cacheLimit = Math.max(3, Math.min(7, Math.floor((compact ? 42 : 104) * 2 ** 20 / (width * height * 16))));
+  // Decode to the resolution the viewport can use. Keep the source tiers for wide/high-DPI screens.
+  const viewWidth = Math.ceil(innerWidth * Math.min(devicePixelRatio, 1.5) * 1.08 / 16) * 16;
+  canvas.width = Math.min(width, Math.max(768, viewWidth));
+  canvas.height = canvas.width * 9 / 16;
   const context = canvas.getContext('2d', { alpha: false });
-  if (!context) return { setProgress() {} };
+  if (!context) return { setProgress() {}, setActive() {} };
   const ambientLayout = matchMedia(ambientMedia);
-  if (compact && ambientStrip) {
-    ambient.width = 256;
-    ambient.height = 144;
+  if (ambientStrip) {
+    ambient.width = compact ? 256 : 960;
+    ambient.height = ambient.width * 9 / 16;
   }
   const stripLayout = ambientStrip && matchMedia(ambientStrip.media);
   const ambientContext = ambient.getContext('2d', { alpha: false });
@@ -46,46 +57,79 @@ export function createScrollFilm(canvas, ambient, motion, {
     }
   }
 
-  const downloads = new Map();
+  const compressed = new Map();
+  const pending = new Map();
   const decoded = new Map();
   const decoding = new Set();
   const failures = new Map();
-  let wanted = [];
+  let decodeWindow = [];
+  let active = true;
   let target = openingFrame;
   let position = motion.matches ? openingFrame : 0;
   let velocity = 0;
   let drawn = -1;
+  let drawnSource;
   let request = 0;
   let lastTime = 0;
   let opening = openingFrame > 0 && !motion.matches;
   let openingTime;
   let direction = 1;
-  let prefetchTimer;
+  let retryTimer;
+  const guideEnd = Math.ceil((frameCount - 1) / GUIDE_STEP);
+  const guide = new Image();
+  const guideCanvas = document.createElement('canvas');
+  guideCanvas.className = 'film-frames';
+  guideCanvas.setAttribute('aria-hidden', 'true');
+  guideCanvas.width = GUIDE_WIDTH;
+  guideCanvas.height = GUIDE_HEIGHT;
+  const guideContext = guideCanvas.getContext('2d', { alpha: false });
+  let guideReady = false;
+  let guideRequested = false;
+  let ambientReady = false;
 
-  function prefetch(index) {
-    if (index < 0 || index > lastSheet || downloads.has(index)) return;
-    download(index).catch(() => {});
+  function prepareGuide() {
+    if (guideRequested || motion.matches || !guideContext) return;
+    guideRequested = true;
+    canvas.after(guideCanvas);
+    guide.fetchPriority = openingFrame ? 'high' : 'auto';
+    guide.src = new URL('./assets/' + directory + '/guide-v1.webp', import.meta.url).href;
+    guide.decode().then(() => {
+      guideReady = true;
+      schedule();
+    }).catch(() => { /* Full-resolution sheets remain available. */ });
   }
 
-  function download(index) {
-    if (!downloads.has(index)) {
-      const filename = prefix + '-' + String(index).padStart(3, '0') + '.webp';
-      const url = new URL('./assets/' + directory + '/' + filename, import.meta.url);
-      const response = fetch(url).then(result => {
-        if (!result.ok) throw new Error('Film frame sheet unavailable');
-        return result.blob();
-      }).catch(error => {
-        downloads.delete(index);
-        throw error;
-      });
-      downloads.set(index, response);
-    }
-    return downloads.get(index);
+  function download(index, priority) {
+    const controller = new AbortController();
+    pending.set(index, controller);
+    const filename = prefix + '-' + String(index).padStart(3, '0') + '.webp';
+    const url = new URL('./assets/' + directory + '/' + filename, import.meta.url);
+    fetch(url, { signal: controller.signal, priority }).then(result => {
+      if (!result.ok) throw new Error('Film frame sheet unavailable');
+      return result.blob();
+    }).then(blob => {
+      failures.delete(index);
+      compressed.set(index, blob);
+      if (compressed.size > BLOB_LIMIT) compressed.delete(compressed.keys().next().value);
+    }).catch(error => {
+      if (error.name !== 'AbortError') {
+        failures.set(index, performance.now() + 1250);
+        clearTimeout(retryTimer);
+        retryTimer = setTimeout(schedule, 1300);
+      }
+    }).finally(() => {
+      pending.delete(index);
+      schedule();
+    });
   }
 
   async function decode(blob) {
     if (typeof createImageBitmap === 'function') {
-      try { return await createImageBitmap(blob); } catch { /* Use the image decoder. */ }
+      try {
+        return canvas.width < width
+          ? await createImageBitmap(blob, { resizeWidth: canvas.width * 2, resizeHeight: canvas.height * 2, resizeQuality: 'medium' })
+          : await createImageBitmap(blob);
+      } catch { /* Use the image decoder. */ }
     }
     const image = new Image();
     const url = URL.createObjectURL(blob);
@@ -100,49 +144,63 @@ export function createScrollFilm(canvas, ambient, motion, {
 
   function trimCache() {
     for (const [index, image] of decoded) {
-      if (decoded.size <= CACHE_LIMIT) return;
-      if (wanted.includes(index) || endpointSheets.includes(index)) continue;
+      if (decoded.size <= cacheLimit) return;
+      if (decodeWindow.includes(index) || endpointSheets.includes(index)) continue;
       image.close?.();
       decoded.delete(index);
     }
   }
 
-  function queueSheets(indices, ahead = []) {
-    wanted = [...new Set(indices)].filter(index => index >= 0 && index <= lastSheet);
+  function loadAround(current, destination) {
+    const nearby = [...new Set([
+      current, ...endpointSheets, destination, current + direction,
+      current - direction, destination + direction, current + direction * 2
+    ])].filter(index => index >= 0 && index <= lastSheet);
+    decodeWindow = nearby.slice(0, cacheLimit);
     const now = performance.now();
-    for (const index of wanted) {
-      if (decoding.size >= DECODE_LIMIT) break;
-      if (decoded.has(index) || decoding.has(index) || (failures.get(index) ?? 0) > now) continue;
+    const needsDownload = index => !decoded.has(index) && !compressed.has(index) &&
+      !decoding.has(index) && !pending.has(index) && (failures.get(index) ?? 0) <= now;
 
+    // A fast scroll can make queued requests irrelevant. Free one slot for the new frame.
+    if (pending.size >= NETWORK_LIMIT && needsDownload(current)) {
+      const obsolete = [...pending].find(([index, controller]) =>
+        !nearby.includes(index) && !controller.signal.aborted);
+      obsolete?.[1].abort();
+    }
+    for (const index of nearby) {
+      if (pending.size >= NETWORK_LIMIT) break;
+      if (needsDownload(index)) download(index, index === current || index === destination ? 'high' : 'low');
+    }
+
+    for (const index of decodeWindow) {
+      if (decoding.size >= decodeLimit) break;
+      if (decoded.has(index) || decoding.has(index) || !compressed.has(index)) continue;
+      const blob = compressed.get(index);
+      compressed.delete(index);
+      compressed.set(index, blob);
       decoding.add(index);
-      download(index).then(decode).then(image => {
+      decode(blob).then(image => {
+        if (!active && !endpointSheets.includes(index)) {
+          image.close?.();
+          return;
+        }
         decoded.set(index, image);
-        failures.delete(index);
         trimCache();
       }).catch(() => {
-        downloads.delete(index);
-        failures.set(index, performance.now() + 1000);
+        compressed.delete(index);
+        failures.set(index, performance.now() + 1250);
+        clearTimeout(retryTimer);
+        retryTimer = setTimeout(schedule, 1300);
       }).finally(() => {
         decoding.delete(index);
         schedule();
       });
     }
-    for (const index of ahead) {
-      if ((failures.get(index) ?? 0) <= now) prefetch(index);
-    }
   }
 
-  function warmAhead(from, sign) {
-    clearTimeout(prefetchTimer);
-    if (motion.matches) return;
-    prefetchTimer = setTimeout(() => {
-      for (let offset = 1; offset <= 12; offset++) prefetch(from + offset * sign);
-    }, 140);
-  }
-
-  function drawAmbient(image, x, y) {
+  function drawAmbient(image, x, y, sourceWidth, sourceHeight) {
     if (!stripLayout?.matches || !floorContext) {
-      ambientContext.drawImage(image, x, y, width, height, 0, 0, ambient.width, ambient.height);
+      ambientContext.drawImage(image, x, y, sourceWidth, sourceHeight, 0, 0, ambient.width, ambient.height);
       return;
     }
 
@@ -155,7 +213,7 @@ export function createScrollFilm(canvas, ambient, motion, {
       ambientContext.translate(offset + (mirrored ? tileWidth : 0), 0);
       if (mirrored) ambientContext.scale(-1, 1);
       ambientContext.drawImage(
-        image, x + width * background.left, y, width * tileWidth / ambient.width, height,
+        image, x + sourceWidth * background.left, y, sourceWidth * tileWidth / ambient.width, sourceHeight,
         0, 0, tileWidth, ambient.height
       );
       ambientContext.restore();
@@ -163,10 +221,10 @@ export function createScrollFilm(canvas, ambient, motion, {
 
     // Copy a clean patch of floor at its original scale and vertical position.
     // Blend only its upper edge into the dark background above.
-    const floorSourceY = height * floorY / ambient.height;
+    const floorSourceY = sourceHeight * floorY / ambient.height;
     floorContext.globalCompositeOperation = 'copy';
     floorContext.drawImage(
-      image, x + width * floor.left, y + floorSourceY, width * stripWidth, height - floorSourceY,
+      image, x + sourceWidth * floor.left, y + floorSourceY, sourceWidth * stripWidth, sourceHeight - floorSourceY,
       0, 0, floorPatch.width, floorPatch.height
     );
     floorContext.globalCompositeOperation = 'destination-in';
@@ -177,22 +235,41 @@ export function createScrollFilm(canvas, ambient, motion, {
 
   function draw(frame, force = false) {
     const index = sheetAt(frame);
-    const image = decoded.get(index);
-    if (!image || (frame === drawn && !force)) return;
-    const tile = frame % FRAMES_PER_SHEET;
-    const x = tile % 2 * width;
-    const y = Math.floor(tile / 2) * height;
-    context.drawImage(image, x, y, width, height, 0, 0, width, height);
+    const sheet = decoded.get(index);
+    const sample = frame === frameCount - 1 ? guideEnd : Math.round(frame / GUIDE_STEP);
+    const visualFrame = sheet ? frame : Math.min(sample * GUIDE_STEP, frameCount - 1);
+    const image = sheet ?? (guideReady ? guide : null);
+    if (!image || (!force && visualFrame === drawn && (image === drawnSource || !sheet))) return;
+    const tile = sheet ? frame % FRAMES_PER_SHEET : sample;
+    const columns = sheet ? 2 : GUIDE_COLUMNS;
+    const sourceWidth = sheet ? (sheet.naturalWidth || sheet.width) / 2 : GUIDE_WIDTH;
+    const sourceHeight = sheet ? (sheet.naturalHeight || sheet.height) / 2 : GUIDE_HEIGHT;
+    const x = tile % columns * sourceWidth;
+    const y = Math.floor(tile / columns) * sourceHeight;
+    if (sheet) context.drawImage(image, x, y, sourceWidth, sourceHeight, 0, 0, canvas.width, canvas.height);
+    else guideContext.drawImage(image, x, y, sourceWidth, sourceHeight, 0, 0, GUIDE_WIDTH, GUIDE_HEIGHT);
     if (ambientContext && ambientLayout.matches) {
-      drawAmbient(image, x, y);
-      ambient.classList.add('ready');
+      drawAmbient(image, x, y, sourceWidth, sourceHeight);
+      if (!ambientReady) {
+        ambientReady = true;
+        ambient.classList.add('ready');
+      }
     }
-    if (drawn < 0) canvas.classList.add('ready');
-    canvas.dataset.frame = String(frame);
-    drawn = frame;
-    onFrame?.(frame);
-    decoded.delete(index);
-    decoded.set(index, image);
+    const quality = sheet ? 'full' : 'guide';
+    if (canvas.dataset.quality !== quality) {
+      canvas.classList.toggle('ready', Boolean(sheet));
+      guideCanvas.classList.toggle('ready', !sheet);
+      canvas.dataset.quality = quality;
+    }
+    canvas.dataset.frame = String(visualFrame);
+    drawn = visualFrame;
+    drawnSource = image;
+    // Captions follow the displayed frame even when the guide is active.
+    onFrame?.(visualFrame);
+    if (sheet) {
+      decoded.delete(index);
+      decoded.set(index, sheet);
+    }
   }
 
   function advance(elapsed) {
@@ -217,87 +294,77 @@ export function createScrollFilm(canvas, ambient, motion, {
   function render(now) {
     request = 0;
     if (opening) {
-      // The opening spans more sheets than the scrub cache. Decode a rolling
-      // window and start once the first few sheets can play without waiting.
-      const first = sheetAt(position);
-      const window = openingSheets.slice(first, first + 4);
-      queueSheets(window, openingSheets);
-      if (openingSheets.some(index => failures.has(index))) {
-        opening = false;
-      } else {
-        if (openingTime === undefined && !window.every(index => decoded.has(index))) return;
+      const current = sheetAt(position);
+      loadAround(current, current + 1);
+      if (guideReady || decoded.has(current)) {
         const elapsed = openingTime === undefined ? 0 : Math.min(now - openingTime, 34);
-        openingTime = now;
-        const next = Math.min(openingFrame, position + elapsed * FRAME_RATE / 1000);
-        const frame = Math.floor(next);
-        if (decoded.has(sheetAt(frame))) {
-          position = next;
-          draw(frame);
-          opening = frame < openingFrame;
-        }
+        position = Math.min(openingFrame, position + elapsed * FRAME_RATE / 1000);
+        draw(Math.floor(position));
+        opening = position < openingFrame;
         schedule();
-        return;
       }
+      openingTime = now;
+      return;
     }
 
-    const elapsed = lastTime ? Math.min(now - lastTime, 50) : 16.7;
+    const elapsed = lastTime ? Math.min(now - lastTime, 75) : 16.7;
     lastTime = now;
     advance(elapsed);
-
     const frame = Math.round(position);
-    const current = sheetAt(frame);
-    const destination = sheetAt(target);
-    const nearby = [current, ...endpointSheets, destination, current + direction, current - direction,
-      current + direction * 2, destination + direction, current - direction * 2];
-    const ahead = [current + direction * 3, current + direction * 4,
-      current + direction * 5, current + direction * 6, current + direction * 7,
-      destination, destination + direction, destination + direction * 2, current - direction * 3];
-    queueSheets(motion.matches ? [current, ...endpointSheets] : nearby, motion.matches ? [] : ahead);
-
-    if (decoded.has(current)) {
-      draw(frame);
-    } else if (drawn >= 0) {
-      // Keep moving through available frames while a requested sheet decodes.
-      const step = Math.sign(frame - drawn);
-      for (let offset = 1; step && offset <= 7; offset++) {
-        const candidate = frame - offset * step;
-        if ((candidate - drawn) * step <= 0) break;
-        if (!decoded.has(sheetAt(candidate))) continue;
-        draw(candidate);
-        break;
-      }
-    }
+    loadAround(sheetAt(frame), sheetAt(target));
+    draw(frame);
     if (position !== target || velocity !== 0) schedule();
     else lastTime = 0;
   }
 
   function schedule() {
-    if (!request) request = requestAnimationFrame(render);
+    if (active && !request) request = requestAnimationFrame(render);
   }
 
   function redrawAmbient() {
-    if (drawn >= 0) draw(drawn, true);
+    if (active && drawn >= 0) draw(drawn, true);
   }
   ambientLayout.addEventListener('change', redrawAmbient);
   stripLayout?.addEventListener('change', redrawAmbient);
 
   return {
+    setActive(value) {
+      if (active === value) return;
+      active = value;
+      if (active) {
+        schedule();
+        return;
+      }
+      cancelAnimationFrame(request);
+      request = 0;
+      lastTime = 0;
+      clearTimeout(retryTimer);
+      pending.forEach(controller => controller.abort());
+      for (const [index, image] of decoded) {
+        if (endpointSheets.includes(index)) continue;
+        image.close?.();
+        decoded.delete(index);
+      }
+      compressed.clear();
+      drawnSource = undefined;
+    },
     setProgress(progress, { immediate = false } = {}) {
-      const wasOpening = opening;
-      // Queue early scroll input while the frame lands. Skip the intro when
-      // navigation jumps directly past the hero or motion is reduced.
-      if (progress >= 1 || motion.matches) opening = false;
+      if (active) prepareGuide();
+      if (opening && (progress > .015 || motion.matches)) {
+        opening = false;
+        position = Math.max(position, openingFrame);
+      }
       const next = openingFrame + progress * (frameCount - 1 - openingFrame);
       const snap = immediate && position !== next;
       if (snap) {
         position = next;
         velocity = 0;
+      } else if (!opening && Math.abs(next - position) > MAX_SCRUB_GAP) {
+        position = next - Math.sign(next - position) * MAX_SCRUB_GAP;
       }
-      if (next !== target) {
-        direction = Math.sign(next - target);
-        warmAhead(sheetAt(next), direction);
-      }
-      else if (!snap && drawn >= 0 && !wasOpening && !motion.matches) return;
+      if (velocity * (next - position) < 0) velocity = 0;
+      if (next !== target) direction = Math.sign(next - target);
+      else if (!snap && drawn >= 0 && !opening && !motion.matches) return;
       target = next;
       schedule();
     }

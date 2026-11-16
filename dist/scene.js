@@ -54,11 +54,14 @@ export async function createProductScene(container, {reducedMotion=false,lightin
  frame?.traverse(o=>{if(o.isMesh&&o.name.startsWith('heroTemple')){o.material=o.material.clone();templeMaterials.push(o.material)}});
  const motionReduced=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
  const state={progress:0,exploded:false,paused:reducedMotion,color:'black',filter:0,rotationX:0,rotationY:0};
- let visible=true,disposed=false,drag=null,smoothed=0,explodeSmooth=0,rx=0,ry=0,first=true;
+ let disposed=false,drag=null,smoothed=0,explodeSmooth=0,rx=0,ry=0,first=true;
  const timer=new THREE.Timer();timer.connect(document);
  function resize(){const w=container.clientWidth,h=container.clientHeight;if(!w||!h)return;renderer.setSize(w,h);camera.aspect=w/h;camera.position.z=w/h<1.15?16:12.6;camera.updateProjectionMatrix()}
  const resizer=new ResizeObserver(resize);resizer.observe(container);resize();
- const observer=new IntersectionObserver(entries=>{visible=entries[0].isIntersecting;},{threshold:0});observer.observe(container);
+ const observer = new IntersectionObserver(([entry]) => {
+  renderer.setAnimationLoop(entry.isIntersecting ? render : null);
+ });
+ observer.observe(container);
  function down(e){if(e.button!==0)return;drag={x:e.clientX,y:e.clientY,rx:state.rotationX,ry:state.rotationY};canvas.setPointerCapture(e.pointerId)}
  function move(e){if(!drag)return;state.rotationY=drag.ry+(e.clientX-drag.x)*.007;state.rotationX=THREE.MathUtils.clamp(drag.rx+(e.clientY-drag.y)*.004,-.7,.7)}
  function up(){drag=null}
@@ -68,8 +71,8 @@ export async function createProductScene(container, {reducedMotion=false,lightin
  function lost(e){e.preventDefault();container.classList.remove('ready');container.classList.add('fallback-only');container.querySelector('.scene-loading').textContent='3D paused. Product photography shown.'}
  function restored(){container.classList.remove('fallback-only');container.classList.add('ready')}
  canvas.addEventListener('webglcontextlost',lost);canvas.addEventListener('webglcontextrestored',restored);
- renderer.setAnimationLoop(()=>{
-  timer.update();if(disposed||!visible||document.hidden)return;
+ function render(){
+  timer.update();if(disposed||document.hidden)return;
   const dt=Math.min(timer.getDelta(),.05),t=timer.getElapsed(),damp=reducedMotion?1:1-Math.exp(-dt*7);
   smoothed+=(state.progress-smoothed)*damp;rx+=(state.rotationX-rx)*damp;ry+=(state.rotationY-ry)*damp;
   // End pose cannot lag behind the sticky-section release on a fast scroll.
@@ -93,7 +96,7 @@ export async function createProductScene(container, {reducedMotion=false,lightin
   rim.intensity=3+illumination*2;scene.environmentIntensity=1.0+architecture*.2;renderer.toneMappingExposure=1.0+architecture*.05;
   renderer.render(scene,camera);
   if(first){first=false;container.classList.add('ready');onReady()}
- });
+ }
  return {state,reset,setFilter(progress, { immediate = false } = {}) {
   if (!immediate && window.gsap && !motionReduced()) {
    gsap.to(state, { filter: progress, duration: 1.15, ease: 'power2.inOut', overwrite: 'auto' });

@@ -146,26 +146,19 @@ function scrubLightFilter(trackTop, travel) {
 
 let scrollPending = false;
 let previousBlend;
+let geometry;
 function scrollState() {
   scrollPending = false;
   const y = scrollY;
-  const height = stage.offsetHeight;
-  const heroStart = experience.offsetTop + story.offsetTop;
-  const dentistStart = experience.offsetTop + dentistStory.offsetTop;
+  const { height, heroStart, dentistStart, stageRelease, filmBottom, lightOffset, lightTravel, surfaces } = geometry;
   const blendStart = dentistStart - height * (motion.matches ? .52 : 1.18);
   const blend = clampProgress((y - blendStart) / Math.max(1, dentistStart - blendStart));
   const progress = clampProgress((y - heroStart) / Math.max(1, blendStart - heroStart - height * .12));
-  const stageRelease = experience.offsetTop + experience.offsetHeight - height;
   // Show the final frame while the stage is still pinned, before the next section enters.
   const dentistEnd = stageRelease - height * .5;
   const clinicalProgress = clampProgress((y - dentistStart) / Math.max(1, dentistEnd - dentistStart));
-  const overFilm = y < experience.offsetTop + experience.offsetHeight - header.offsetHeight;
-  const lightSurface = !overFilm && lightSections.some(section => {
-    const rect = section.getBoundingClientRect();
-    return rect.top < 76 && rect.bottom > 76;
-  });
-  const lightTop = lightingTrack.getBoundingClientRect().top;
-  const lightTravel = lightingTrack.offsetHeight - lightingSection.offsetHeight;
+  const overFilm = y < filmBottom - 76;
+  const lightSurface = !overFilm && surfaces.some(({ top, bottom }) => top < y + 76 && bottom > y + 76);
 
   header.classList.toggle('scrolled', y > 60);
   header.classList.toggle('over-film', overFilm);
@@ -174,11 +167,14 @@ function scrollState() {
     previousBlend = blend;
     updateFilmHandoff(blend);
   }
-  scrubLightFilter(lightTop, lightTravel);
+  scrubLightFilter(lightOffset - y, lightTravel);
 
   const still = progress < .22 ? 0 : progress < .46 ? .34 : .88;
+  heroFilm.setActive(blend < 1);
   heroFilm.setProgress(motion.matches ? still : progress);
-  if (y >= blendStart - height * .7) prepareDentist();
+  const dentistNear = y >= blendStart - height * 1.55 && y < stageRelease + height;
+  if (dentistNear) prepareDentist();
+  dentistFilm?.setActive(dentistNear);
   const clinicalStill = clinicalProgress < ergonomicFrame / (dentistFrameCount - 1) ? 0 : 1;
   dentistFilm?.setProgress(motion.matches ? clinicalStill : clinicalProgress, {
     immediate: y <= dentistStart || y >= stageRelease
@@ -189,15 +185,34 @@ addEventListener('scroll', () => {
   scrollPending = true;
   requestAnimationFrame(scrollState);
 }, { passive: true });
-function measureLightPin() {
-  lightPinTop = Math.min(76, innerHeight - lightingSection.offsetHeight);
-  lightingTrack.style.setProperty('--light-pin-top', `${lightPinTop}px`);
+function measureScroll() {
+  const y = scrollY;
+  const height = stage.offsetHeight;
+  const filmTop = experience.offsetTop;
+  const filmBottom = filmTop + experience.offsetHeight;
+  const lightHeight = lightingSection.offsetHeight;
+  geometry = {
+    height, filmBottom, stageRelease: filmBottom - height,
+    heroStart: filmTop + story.offsetTop,
+    dentistStart: filmTop + dentistStory.offsetTop,
+    lightOffset: lightingTrack.getBoundingClientRect().top + y,
+    lightTravel: lightingTrack.offsetHeight - lightHeight,
+    surfaces: lightSections.map(section => {
+      const { top, bottom } = section.getBoundingClientRect();
+      return { top: top + y, bottom: bottom + y };
+    })
+  };
+  const pin = Math.min(76, innerHeight - lightHeight);
+  if (pin !== lightPinTop) {
+    lightPinTop = pin;
+    lightingTrack.style.setProperty('--light-pin-top', `${pin}px`);
+  }
   scrollState();
 }
-addEventListener('resize', measureLightPin);
-const lightSizer = new ResizeObserver(measureLightPin);
-lightSizer.observe(lightingSection);
-scrollState();
+addEventListener('resize', measureScroll);
+const scrollSizer = new ResizeObserver(measureScroll);
+[$('main'), stage, lightingSection, lightingTrack].forEach(element => scrollSizer.observe(element));
+measureScroll();
 
 async function initMotion(){await document.fonts.ready;if(!window.gsap||!window.ScrollTrigger)return;gsap.registerPlugin(ScrollTrigger);const mm=gsap.matchMedia();mm.add('(prefers-reduced-motion: no-preference)',()=>{gsap.from('.site-header',{y:-12,autoAlpha:0,duration:.65,ease:'power3.out'});$$('.reveal').forEach(el=>gsap.from(el,{y:35,autoAlpha:0,duration:.9,ease:'power3.out',scrollTrigger:{trigger:el,start:'top 90%',once:true}}));gsap.to('.craft-media',{yPercent:8,ease:'none',scrollTrigger:{trigger:'.craft',start:'top bottom',end:'bottom top',scrub:1}});});
  const statement=$('#manifesto-text'),words=statement.textContent.trim().split(/\s+/);statement.setAttribute('aria-label',words.join(' '));statement.innerHTML=words.map(w=>`<span aria-hidden="true">${w}</span>`).join(' ');const spans=[...statement.children];ScrollTrigger.create({trigger:statement,start:'top 85%',end:'bottom 40%',onUpdate:self=>spans.forEach((s,i)=>s.classList.toggle('lit',motion.matches||i/spans.length<self.progress+.08))});if(motion.matches)spans.forEach(s=>s.classList.add('lit'));ScrollTrigger.refresh();window.addEventListener('pagehide',()=>mm.revert(),{once:true})}
@@ -231,10 +246,10 @@ motion.addEventListener('change', () => {
     lightingScene?.setFilter(filterProgress, { immediate: true });
   }
   if (lightingScene) lightingScene.state.paused = motion.matches;
-  scrollState();
+  measureScroll();
 });
 addEventListener('pagehide', () => {
-  lightSizer.disconnect();
+  scrollSizer.disconnect();
   lightObserver.disconnect();
   lightingScene?.dispose();
   window.ScrollTrigger?.getAll().forEach(trigger => trigger.kill());
