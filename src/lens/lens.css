@@ -12,22 +12,21 @@
   padding: clamp(64px, 8.5vw, 150px) var(--pad);
 }
 .lens-inner { max-width: 2450px; margin-inline: auto; }
-.lens-intro {
-  display: grid;
-  grid-template-columns: minmax(0, 1.46fr) minmax(0, 1fr);
-  align-items: end;
-  gap: clamp(28px, 6vw, 120px);
-  margin-bottom: clamp(35px, 5vw, 96px);
+#lens-title {
+  text-align: center;
+  margin-bottom: clamp(24px, 4vw, 64px);
 }
-.lens-intro h2 {
-  font-size: clamp(48px, 5.3vw, 128px);
+#lens-interactive {
+  max-width: 1160px;
+  margin-inline: auto;
 }
-.lens-intro p {
-  color: var(--lens-muted);
-  font-size: clamp(16px, 1.6vw, 36px);
-  line-height: 1.62;
-  max-width: 34ch;
+#lens-interactive:not(:has(.lens-layout))::before {
+  content: '';
+  display: block;
+  aspect-ratio: 1.62;
+  margin-bottom: clamp(22px, 3vw, 40px);
 }
+#lens-interactive:not(:has(.lens-layout))::after { content: ''; display: block; height: 76px; }
 .lens-label, .lens-badge {
   color: var(--lens-muted);
   font-family: var(--sans);
@@ -37,12 +36,9 @@
   letter-spacing: .12em;
   text-transform: uppercase;
 }
-.lens-intro .lens-label { display: block; margin-bottom: 18px; }
 .lens-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.82fr) minmax(0, 1fr);
-  align-items: start;
-  gap: clamp(26px, 3.25vw, 75px);
+  gap: clamp(22px, 3vw, 40px);
 }
 .lens-viewer {
   position: relative;
@@ -86,7 +82,6 @@
   background: #111315d9;
   pointer-events: none;
 }
-.lens-badge-base { top: clamp(12px, 1.5vw, 32px); }
 .lens-badge-guide { bottom: clamp(12px, 1.5vw, 32px); }
 .lens-glass {
   position: absolute;
@@ -133,10 +128,9 @@
   transform: translate(-50%, -50%);
 }
 .lens-reticle::after { transform: translate(-50%, -50%) rotate(90deg); }
-.lens-controls { display: grid; gap: clamp(22px, 2.2vw, 48px); }
+.lens-controls { display: flex; flex-wrap: wrap; justify-content: center; gap: 24px clamp(28px, 5vw, 72px); }
 .lens-fieldset { min-inline-size: 0; padding: 0; margin: 0; border: 0; }
 .lens-option-group { margin-top: clamp(13px, 1.25vw, 29px); }
-.lens-family { color: var(--lens-muted); margin-bottom: 8px; font-size: clamp(13px, 1.04vw, 22px); }
 .lens-pill { display: inline-grid; position: relative; cursor: pointer; }
 .lens-pill input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: inherit; }
 .lens-pill > span {
@@ -163,34 +157,17 @@
 .lens-light-pill i { inline-size: .55em; block-size: .55em; border-radius: 50%; background: #fcf3dc; border: 1px solid #918f88; }
 .lens-light-pill i[data-tone='amber'] { background: #e6a245; border-color: #e6a245; }
 .lens-light-pill i[data-tone='none'] { background: transparent; border-color: #858585; }
-.lens-data {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin: 0;
-  border: 1px solid var(--lens-line);
-  border-radius: 28px;
-  background: #0d0f10;
-}
-.lens-data > div { padding: clamp(13px, 1.4vw, 34px); }
-.lens-metric + .lens-metric { border-left: 1px solid var(--lens-line); }
-.lens-data dd { margin: .45em 0 0; }
-.lens-metric dd { font-size: clamp(18px, 1.55vw, 34px); font-weight: 500; letter-spacing: -.045em; }
-.lens-usage { grid-column: span 2; min-block-size: clamp(110px, 7.7vw, 225px); border-top: 1px solid var(--lens-line); }
-.lens-usage dd { font-size: clamp(14px, 1.12vw, 26px); color: #d6d5d1; line-height: 1.4; }
-.lens-usage small { display: block; margin-top: .43em; color: var(--lens-muted); font-size: .82em; }
-.lens-note { color: var(--lens-muted); line-height: 1.55; font-size: clamp(11px, .8vw, 15px); }
-
-@media (max-width: 950px) {
-  .lens-intro, .lens-layout { grid-template-columns: 1fr; }
-  .lens-intro h2 { max-width: 16ch; }
-  .lens-intro p { max-width: 52ch; }
-}
 @media (max-width: 560px) {
-  .lens-intro { gap: 18px; }
-  .lens-intro h2 { font-size: clamp(36px, 10.4vw, 56px); }
+  #lens-interactive:not(:has(.lens-layout))::before { aspect-ratio: 4 / 5; }
+  #lens-interactive:not(:has(.lens-layout))::after { height: 210px; }
+  .lens-controls { justify-content: flex-start; }
+  .lens-pill > span { padding-inline: 13px; }
   .lens-viewer { aspect-ratio: 4 / 5; }
   .lens-glass { width: 69%; }
 }
 @media (prefers-reduced-motion: reduce) {
   .lens-pill > span, .lens-light-falloff, .lens-photo-detail { transition: none; }
+}
+@media (scripting: none) {
+  #lens-interactive::before, #lens-interactive::after { display: none; }
 }

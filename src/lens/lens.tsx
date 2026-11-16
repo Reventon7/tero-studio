@@ -1,29 +1,18 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { KeyboardEvent, PointerEvent } from 'react';
 import { createRoot } from 'react-dom/client';
-import { animate, motion, useMotionValue, useReducedMotion } from 'motion/react';
+import { animate, useMotionValue, useReducedMotion } from 'motion/react';
 
-type Magnification = {
-  id: string;
-  label: string;
-  family: string;
-  field: string;
-  depth: string;
-  suitedTo: string;
-  scale: number;
-};
+const magnifications = [
+  { scale: 1, label: '1.0×' },
+  { scale: 2.5, label: '2.5×' },
+  { scale: 3, label: '3.0×' },
+  { scale: 3.5, label: '3.5×' },
+  { scale: 4.5, label: '4.5×' },
+  { scale: 5.5, label: '5.5×' },
+] as const;
+type Magnification = typeof magnifications[number];
 
-const options = [
-  { id: 'naked', label: '1.0× naked eye', family: '', field: 'Full scene', depth: 'Unlimited', suitedTo: 'Orientation and patient conversation', scale: 1 },
-  { id: 'prism-35', label: '3.5×', family: 'TERO Prism', field: '70 mm', depth: '90 mm', suitedTo: 'Restorative detail with an upright posture', scale: 3.5 },
-  { id: 'prism-45', label: '4.5×', family: 'TERO Prism', field: '55 mm', depth: '60 mm', suitedTo: 'Endodontic access and canal location', scale: 4.5 },
-  { id: 'prism-55', label: '5.5×', family: 'TERO Prism', field: '40 mm', depth: '35 mm', suitedTo: 'Microsurgery and periodontal plastics', scale: 5.5 },
-  { id: 'galilean-25', label: '2.5×', family: 'TERO Galilean', field: '100 mm', depth: '140 mm', suitedTo: 'Hygiene, exams and general procedures', scale: 2.5 },
-  { id: 'galilean-30', label: '3.0×', family: 'TERO Galilean', field: '85 mm', depth: '110 mm', suitedTo: 'Everyday restorative dentistry', scale: 3 },
-  { id: 'galilean-35', label: '3.5×', family: 'TERO Galilean', field: '65 mm', depth: '80 mm', suitedTo: 'Crown preparation and fine margins', scale: 3.5 },
-] as const satisfies readonly Magnification[];
-
-const families = ['', 'TERO Prism', 'TERO Galilean'] as const;
 const lights = [
   { id: 'daylight', label: 'Daylight' },
   { id: 'amber', label: 'Amber filter' },
@@ -152,10 +141,9 @@ function LoupeViewer({ power, light }: { power: Magnification; light: Light }) {
 
   return <div className="lens-viewer" ref={viewer}>
     <img className="lens-photo lens-photo-base" src={photo} alt="A row of white plaster dental casts on a gray work surface" width="3200" height="2133" draggable={false} />
-    <span className="lens-badge lens-badge-base">Naked eye</span>
     <span className="lens-badge lens-badge-guide"><span aria-hidden="true">✥</span> Drag the loupe</span>
     <div className="lens-glass" data-ready={ready} data-light={light} ref={glass} tabIndex={0} role="group"
-      aria-label={`Loupe view at ${power.label}${power.family ? `, ${power.family}` : ''}. Drag it, or use the arrow keys to move it.`}
+      aria-label={`Loupe view at ${power.label}. Drag it, or use the arrow keys to move it.`}
       onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}
       onLostPointerCapture={endDrag} onKeyDown={moveByKey}>
       <img className="lens-photo lens-photo-detail" ref={detail} src={photo} alt="" draggable={false} />
@@ -168,29 +156,14 @@ function LoupeViewer({ power, light }: { power: Magnification; light: Light }) {
 function MagnificationSelector({ selected, select }: { selected: Magnification; select: (value: Magnification) => void }) {
   return <fieldset className="lens-fieldset">
     <legend className="lens-label">Magnification</legend>
-    {families.map(family => <div className="lens-option-group" key={family}>
-      {family && <p className="lens-family">{family}</p>}
-      <div className="flex flex-wrap gap-2">
-        {options.filter(option => option.family === family).map(option => <label className="lens-pill" key={option.id}>
-          <input type="radio" name="lens-magnification" checked={selected.id === option.id}
-            aria-label={`${option.family ? `${option.family} ` : ''}${option.label}`} onChange={() => select(option)} />
-          <span>{option.label}</span>
-        </label>)}
-      </div>
-    </div>)}
-  </fieldset>;
-}
-
-function TechnicalDataCard({ power }: { power: Magnification }) {
-  const reduced = useReducedMotion();
-  const entry = { initial: reduced ? false : { opacity: 0, y: 8 }, animate: { opacity: 1, y: 0 }, transition: { duration: .25 } };
-  return <dl className="lens-data grid grid-cols-2" aria-live="polite" aria-atomic="true">
-    <div className="lens-metric"><dt className="lens-label">Field of view</dt><motion.dd key={power.field} {...entry}>{power.field}</motion.dd></div>
-    <div className="lens-metric"><dt className="lens-label">Depth of field</dt><motion.dd key={power.depth} {...entry}>{power.depth}</motion.dd></div>
-    <div className="lens-usage col-span-2"><dt className="lens-label">Suited to</dt>
-      <motion.dd key={power.id} {...entry}>{power.suitedTo}{power.family && <small>{power.family}</small>}</motion.dd>
+    <div className="lens-option-group flex flex-wrap gap-2">
+      {magnifications.map(option => <label className="lens-pill" key={option.scale}>
+        <input type="radio" name="lens-magnification" checked={selected.scale === option.scale}
+          aria-label={option.scale === 1 ? '1.0× naked eye' : option.label} onChange={() => select(option)} />
+        <span>{option.label}</span>
+      </label>)}
     </div>
-  </dl>;
+  </fieldset>;
 }
 
 function HeadlightSelector({ selected, select }: { selected: Light; select: (value: Light) => void }) {
@@ -206,15 +179,13 @@ function HeadlightSelector({ selected, select }: { selected: Light; select: (val
 }
 
 function MagnificationSection() {
-  const [power, setPower] = useState<Magnification>(options[6]);
+  const [power, setPower] = useState<Magnification>(magnifications[3]);
   const [light, setLight] = useState<Light>('none');
   return <div className="lens-layout grid">
     <LoupeViewer power={power} light={light} />
     <div className="lens-controls grid">
       <MagnificationSelector selected={power} select={setPower} />
-      <TechnicalDataCard power={power} />
       <HeadlightSelector selected={light} select={setLight} />
-      <p className="lens-note">Illustrative comparison. Actual field and depth depend on your loupe configuration and working distance.</p>
     </div>
   </div>;
 }

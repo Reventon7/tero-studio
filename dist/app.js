@@ -2,7 +2,7 @@ import {createScrollFilm} from './hero-film.js';
 
 const lensMount = document.querySelector('#lens-interactive');
 const lensAnchor = '#through-the-lens';
-const openedAtLens = location.hash === lensAnchor;
+const entryAnchor = location.hash;
 const lensObserver = new IntersectionObserver(async entries => {
   if (!entries.some(entry => entry.isIntersecting)) return;
   lensObserver.disconnect();
@@ -32,7 +32,6 @@ function updateFilterLabel(active) {
   lightToggle.setAttribute('aria-pressed', String(active));
   lightingTrack.classList.toggle('amber-mode', active);
   $('#filter-action').textContent = active ? 'Raise the amber filter' : 'Lower the amber filter';
-  $('#light-state').textContent = active ? 'AMBER LIGHT / FILTER LOWERED' : 'WHITE LIGHT / FILTER RAISED';
 }
 
 lightToggle.addEventListener('click', () => {
@@ -55,8 +54,7 @@ const stage = $('#film-stage');
 const heroPanel = stage.firstElementChild;
 const dentistPanel = stage.lastElementChild;
 const header = $('.site-header');
-const pageProgress = $('.page-progress');
-const lightSections = $$('#seating,.questions');
+const lightSections = $$('.questions');
 const clampProgress = value => Math.max(0, Math.min(1, value));
 const easeProgress = value => {
   const p = clampProgress(value);
@@ -138,7 +136,7 @@ function updateFilmHandoff(blend) {
 function scrubLightFilter(trackTop, travel) {
   if (motion.matches || !travel || lightToggle.disabled) return;
   if (manualFilter && trackTop < innerHeight) return;
-  const progress = easeProgress(((lightPinTop - trackTop) / travel - .10) / .62);
+  const progress = easeProgress(((lightPinTop - trackTop) / travel - .08) / .80);
   if (!manualFilter && progress === filterProgress) return;
   manualFilter = false;
   filterProgress = progress;
@@ -166,14 +164,12 @@ function scrollState() {
     const rect = section.getBoundingClientRect();
     return rect.top < 76 && rect.bottom > 76;
   });
-  const total = document.documentElement.scrollHeight - innerHeight;
   const lightTop = lightingTrack.getBoundingClientRect().top;
   const lightTravel = lightingTrack.offsetHeight - lightingSection.offsetHeight;
 
   header.classList.toggle('scrolled', y > 60);
   header.classList.toggle('over-film', overFilm);
   header.classList.toggle('light-header', lightSurface);
-  pageProgress.style.transform = `scaleX(${total > 0 ? y / total : 0})`;
   if (previousBlend !== blend) {
     previousBlend = blend;
     updateFilmHandoff(blend);
@@ -207,8 +203,8 @@ async function initMotion(){await document.fonts.ready;if(!window.gsap||!window.
  const statement=$('#manifesto-text'),words=statement.textContent.trim().split(/\s+/);statement.setAttribute('aria-label',words.join(' '));statement.innerHTML=words.map(w=>`<span aria-hidden="true">${w}</span>`).join(' ');const spans=[...statement.children];ScrollTrigger.create({trigger:statement,start:'top 85%',end:'bottom 40%',onUpdate:self=>spans.forEach((s,i)=>s.classList.toggle('lit',motion.matches||i/spans.length<self.progress+.08))});if(motion.matches)spans.forEach(s=>s.classList.add('lit'));ScrollTrigger.refresh();window.addEventListener('pagehide',()=>mm.revert(),{once:true})}
 initMotion().then(() => {
   // ScrollTrigger's initial refresh can interrupt the browser's smooth fragment scroll.
-  if (openedAtLens && location.hash === lensAnchor && performance.getEntriesByType('navigation')[0]?.type === 'navigate') {
-    document.querySelector(lensAnchor).scrollIntoView({ behavior: 'instant' });
+  if ([lensAnchor, '#contact'].includes(entryAnchor) && location.hash === entryAnchor && performance.getEntriesByType('navigation')[0]?.type === 'navigate') {
+    document.querySelector(entryAnchor).scrollIntoView({ behavior: 'instant' });
   }
 });
 const lightObserver = new IntersectionObserver(async entries => {
@@ -246,10 +242,50 @@ addEventListener('pagehide', () => {
 $('#year').textContent=new Date().getFullYear();
 
 
-let chairScene,chairView=0;
-function chooseChairView(index){chairView=index;chairScene?.view(index);document.querySelectorAll('[data-chair-view]').forEach(b=>b.setAttribute('aria-pressed',Number(b.dataset.chairView)===index));}
-document.querySelectorAll('[data-chair-view]').forEach(b=>b.addEventListener('click',()=>chooseChairView(Number(b.dataset.chairView))));
-$('#chair-explore').addEventListener('click',()=>chooseChairView((chairView+1)%4));
-$('#chair-motion').addEventListener('click',()=>{if(!chairScene)return;chairScene.state.paused=!chairScene.state.paused;$('#chair-motion').setAttribute('aria-pressed',chairScene.state.paused);$('#chair-motion').setAttribute('aria-label',chairScene.state.paused?'Resume chair motion':'Pause chair motion');$('#chair-motion').textContent=chairScene.state.paused?'▷':'Ⅱ'});
-const chairObserver=new IntersectionObserver(entries=>{if(!entries.some(e=>e.isIntersecting))return;chairObserver.disconnect();import('./chair-scene.js').then(async({createChairScene})=>{chairScene=await createChairScene($('#chair-scene'));chooseChairView(chairView)}).catch(error=>{console.error('TERO chair unavailable:',error);$('#chair-scene .chair-loading').textContent='3D unavailable on this device. Explore the catalog below.';document.querySelectorAll('[data-chair-view],#chair-motion,#chair-explore').forEach(b=>b.disabled=true)})},{rootMargin:'500px'});chairObserver.observe($('#seating'));
-addEventListener('pagehide',()=>{chairObserver.disconnect();chairScene?.dispose()},{once:true});
+const chairContainer = $('#chair-scene');
+let chairScene;
+let leavingPage = false;
+const chairObserver = new IntersectionObserver(async entries => {
+  if (!entries.some(entry => entry.isIntersecting)) return;
+  chairObserver.disconnect();
+  try {
+    const { createChairScene } = await import('./chair-scene.js');
+    chairScene = await createChairScene(chairContainer);
+    if (leavingPage) chairScene.dispose();
+  } catch (error) {
+    console.error('TERO chair unavailable:', error);
+    chairContainer.querySelector('.chair-status').textContent = 'The 3D chair could not load.';
+    $('#chair-guide').hidden = true;
+  } finally {
+    chairContainer.removeAttribute('aria-busy');
+  }
+}, { rootMargin: '420px' });
+chairObserver.observe(chairContainer);
+addEventListener('pagehide', () => {
+  leavingPage = true;
+  chairObserver.disconnect();
+  chairScene?.dispose();
+}, { once: true });
+
+const contactPanel = $('#contact');
+if (location.hash === '#contact') contactPanel.open = true;
+$$('a[href="#contact"]').forEach(link => link.addEventListener('click', () => {
+  contactPanel.open = true;
+}));
+addEventListener('hashchange', () => {
+  if (location.hash === '#contact') contactPanel.open = true;
+});
+
+const contactForm = $('#contact-form');
+contactForm.addEventListener('submit', event => {
+  event.preventDefault();
+  const form = new FormData(event.currentTarget);
+  const message = [
+    `Name: ${form.get('name').trim()}`,
+    form.get('email') && `Email: ${form.get('email').trim()}`,
+    form.get('message').trim()
+  ].filter(Boolean).join('\n');
+  const separator = /iPad|iPhone|iPod/.test(navigator.userAgent) ? '&' : '?';
+  location.href = `sms:+989198005868${separator}body=${encodeURIComponent(message)}`;
+});
+contactForm.querySelector('button[type="submit"]').disabled = false;

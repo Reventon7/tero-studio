@@ -1,24 +1,221 @@
 import * as THREE from 'three';
-import {GLTFLoader} from './vendor/loaders/GLTFLoader.js';
-import {RoomEnvironment} from './vendor/RoomEnvironment.js';
-export async function createChairScene(container){
- const asset=await new GLTFLoader().loadAsync(new URL('./assets/models/chair.glb',import.meta.url).href);
- const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.95;
- const canvas=renderer.domElement;canvas.tabIndex=0;canvas.setAttribute('aria-label','Rotate the TERO chair with arrow keys or drag. Home resets the view.');container.appendChild(canvas);
- const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(32,1,.01,50);camera.position.set(0,1.5,5.7);camera.lookAt(0,1.1,0);
- const pmrem=new THREE.PMREMGenerator(renderer),room=new RoomEnvironment(),environment=pmrem.fromScene(room,.04);scene.environment=environment.texture;room.dispose();pmrem.dispose();
- const key=new THREE.DirectionalLight(0xfff4df,2.1);key.position.set(-3,5,4);const rim=new THREE.DirectionalLight(0xb6cfe3,1.8);rim.position.set(3,3,-3);scene.add(key,rim,new THREE.HemisphereLight(0xffffff,0x5c6670,1.2));
- const model=new THREE.Group();scene.add(model);const product=asset.scene;const bounds=new THREE.Box3().setFromObject(product),size=bounds.getSize(new THREE.Vector3()),center=bounds.getCenter(new THREE.Vector3());const scale=2.4/size.y;product.position.set(-center.x,-bounds.min.y,-center.z);const normalizer=new THREE.Group();normalizer.add(product);normalizer.scale.setScalar(scale);model.add(normalizer);
- product.traverse(o=>{if(o.isMesh){o.material=o.material.clone();if(o.material.metalness>.5)o.material.roughness=Math.max(.27,o.material.roughness);}});
- // Soft studio contact shadow, independent of the product geometry.
- const shadow=new THREE.Mesh(new THREE.PlaneGeometry(3.5,3.5),new THREE.ShaderMaterial({transparent:true,depthWrite:false,uniforms:{},vertexShader:'varying vec2 uvv;void main(){uvv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',fragmentShader:'varying vec2 uvv;void main(){float d=length((uvv-.5)*2.0);gl_FragColor=vec4(.12,.16,.18,.2*exp(-6.0*d*d));}'}));shadow.rotation.x=-Math.PI/2;shadow.position.y=-.008;scene.add(shadow);
- const reduced=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;const state={yaw:.65,progress:0,paused:reduced()};let visible=false,drag=null,disposed=false,angle=.65;
- const resize=()=>{const w=container.clientWidth,h=container.clientHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.position.z=w/h<.8?6.9:5.7;camera.updateProjectionMatrix()};const ro=new ResizeObserver(resize);ro.observe(container);resize();
- const io=new IntersectionObserver(e=>visible=e[0].isIntersecting);io.observe(container);
- const trigger=window.ScrollTrigger?.create({trigger:'#seating',start:'top bottom',end:'bottom top',onUpdate:s=>state.progress=s.progress});
- const timer=new THREE.Timer();timer.connect(document);
- renderer.setAnimationLoop(()=>{timer.update();if(disposed||!visible||document.hidden)return;const target=state.yaw+(reduced()||state.paused?0:(state.progress-.5)*.65);angle=THREE.MathUtils.lerp(angle,target,reduced()?1:.09);model.rotation.y=angle;renderer.render(scene,camera);container.classList.add('ready');});
- function down(e){if(e.button!==0)return;drag={x:e.clientX,yaw:state.yaw};canvas.setPointerCapture(e.pointerId)}function move(e){if(drag)state.yaw=drag.yaw+(e.clientX-drag.x)*.009}function up(){drag=null}function keyboard(e){if(['ArrowLeft','ArrowRight','Home'].includes(e.key)){e.preventDefault();state.yaw=e.key==='Home'?.65:state.yaw+(e.key==='ArrowLeft'?-.25:.25)}}
- canvas.addEventListener('pointerdown',down);canvas.addEventListener('pointermove',move);canvas.addEventListener('pointerup',up);canvas.addEventListener('pointercancel',up);canvas.addEventListener('keydown',keyboard);
- return {state,view(index){const yaw=[.65,0,Math.PI/2,Math.PI][index];if(window.gsap&&!reduced())gsap.to(state,{yaw,duration:1.3,ease:'power3.inOut',overwrite:true});else state.yaw=yaw;container.dataset.view=['three-quarter','front','side','rear'][index]},dispose(){disposed=true;trigger?.kill();window.gsap?.killTweensOf(state);ro.disconnect();io.disconnect();timer.dispose();renderer.setAnimationLoop(null);const geometries=new Set(),materials=new Set();scene.traverse(o=>{if(o.geometry)geometries.add(o.geometry);if(o.material)materials.add(o.material)});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());environment.dispose();renderer.dispose();canvas.remove()}};
+import { GLTFLoader } from './vendor/loaders/GLTFLoader.js';
+import { RoomEnvironment } from './vendor/RoomEnvironment.js';
+
+const initialView = { yaw: .68, pitch: .13 };
+
+function upholsteryGrain() {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  const image = ctx.createImageData(128, 128);
+  for (let i = 0; i < image.data.length; i += 4) {
+    const shade = 90 + ((Math.imul(i + 1, 1597334677) >>> 24) % 82);
+    image.data.set([shade, shade, shade, 255], i);
+  }
+  ctx.putImageData(image, 0, 0);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(3, 3);
+  return texture;
+}
+
+function contourCushion(mesh, crown) {
+  const geometry = mesh.geometry;
+  const position = geometry.getAttribute('position');
+  geometry.computeBoundingBox();
+  const center = geometry.boundingBox.getCenter(new THREE.Vector3());
+  const size = geometry.boundingBox.getSize(new THREE.Vector3());
+  for (let i = 0; i < position.count; i++) {
+    const x = (position.getX(i) - center.x) * 2 / size.x;
+    const y = (position.getY(i) - center.y) * 2 / size.y;
+    const z = position.getZ(i);
+    const face = THREE.MathUtils.smoothstep(z, center.z, geometry.boundingBox.max.z);
+    position.setZ(i, z + crown * face * Math.max(0, 1 - x * x - y * y));
+  }
+  position.needsUpdate = true;
+  geometry.computeVertexNormals();
+  geometry.computeBoundingBox();
+  geometry.computeBoundingSphere();
+  if (!geometry.hasAttribute('uv')) {
+    const uv = new Float32Array(position.count * 2);
+    for (let i = 0; i < position.count; i++) {
+      uv[i * 2] = (position.getX(i) - center.x) / size.x + .5;
+      uv[i * 2 + 1] = (position.getY(i) - center.y) / size.y + .5;
+    }
+    geometry.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  }
+}
+
+function finishChair(product, grain) {
+  const cushions = new Map([
+    ['teroSeat', .008], ['teroBackCushion', .011], ['teroForearmPad', .005]
+  ]);
+  product.traverse(mesh => {
+    if (!mesh.isMesh) return;
+    const name = mesh.name.replace(/_\d+$/, '');
+    if (cushions.has(name)) {
+      // Re-contour the padded faces while retaining the measured mounting points.
+      contourCushion(mesh, cushions.get(name));
+      mesh.material = new THREE.MeshPhysicalMaterial({ color: 0x1a1b1d, roughness: .63,
+        sheen: .14, sheenRoughness: .7, sheenColor: 0x454847,
+        bumpMap: grain, bumpScale: .00075 });
+    } else if (/^tero(?:ChromeSpoke|GasColumn)$/.test(name)) {
+      mesh.material = new THREE.MeshStandardMaterial({ color: 0xc5c9cc, metalness: .96, roughness: .2 });
+    } else if (name === 'teroBackShell' || name === 'teroSeatShell') {
+      mesh.material = new THREE.MeshPhysicalMaterial({ color: 0xe4e3dc, roughness: .36, clearcoat: .22, clearcoatRoughness: .43 });
+    } else if (name === 'teroCasterWheel') {
+      mesh.material = new THREE.MeshStandardMaterial({ color: 0x666a6b, roughness: .67 });
+    }
+  });
+}
+
+export async function createChairScene(container) {
+  const { scene: product } = await new GLTFLoader().loadAsync(new URL('./assets/models/chair.glb', import.meta.url).href);
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = .98;
+  const canvas = renderer.domElement;
+  canvas.tabIndex = 0;
+  canvas.setAttribute('aria-label', 'Rotate the TERO chair with the arrow keys. Press Home to reset.');
+  container.append(canvas);
+
+  const scene = new THREE.Scene();
+  const room = new RoomEnvironment();
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  const environment = pmrem.fromScene(room, .065);
+  scene.environment = environment.texture;
+  scene.environmentIntensity = 1.17;
+  room.dispose();
+  pmrem.dispose();
+
+  const key = new THREE.DirectionalLight(0xfff3e4, 2.4);
+  key.position.set(-3.5, 5, 4);
+  const rim = new THREE.DirectionalLight(0xe0eeff, 2.8);
+  rim.position.set(3, 4, -4);
+  scene.add(key, rim, new THREE.HemisphereLight(0xdce7f2, 0x413d36, .65));
+
+  const grain = upholsteryGrain();
+  const materials = new Set();
+  product.traverse(node => { if (node.isMesh) materials.add(node.material); });
+  finishChair(product, grain);
+  const bounds = new THREE.Box3().setFromObject(product);
+  const size = bounds.getSize(new THREE.Vector3());
+  const center = bounds.getCenter(new THREE.Vector3());
+  product.position.set(-center.x, -bounds.min.y, -center.z);
+  const model = new THREE.Group();
+  model.add(product);
+  model.scale.setScalar(2.4 / size.y);
+  scene.add(model);
+
+  const shadow = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 3.4), new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false,
+    vertexShader: 'varying vec2 uvv;void main(){uvv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
+    fragmentShader: 'varying vec2 uvv;void main(){float d=length((uvv-.5)*2.0);float fade=1.-smoothstep(.2,1.,d);gl_FragColor=vec4(.015,.018,.022,fade*.38*exp(-3.3*d*d));}'
+  }));
+  shadow.rotation.x = -Math.PI / 2;
+  shadow.position.y = .008;
+  scene.add(shadow);
+
+  const camera = new THREE.PerspectiveCamera(31, 1, .05, 50);
+  const focus = new THREE.Vector3(0, 1.18, 0);
+  const desired = { ...initialView };
+  const current = { ...initialView };
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  let distance = 5.8;
+  let frame = 0;
+  let drag;
+  let visible = false;
+
+  function draw() {
+    frame = 0;
+    current.yaw = THREE.MathUtils.lerp(current.yaw, desired.yaw, reduced.matches ? 1 : .28);
+    current.pitch = THREE.MathUtils.lerp(current.pitch, desired.pitch, reduced.matches ? 1 : .28);
+    const horizontal = distance * Math.cos(current.pitch);
+    camera.position.set(Math.sin(current.yaw) * horizontal, focus.y + Math.sin(current.pitch) * distance, Math.cos(current.yaw) * horizontal);
+    camera.lookAt(focus);
+    renderer.render(scene, camera);
+    container.classList.add('ready');
+    if (Math.abs(current.yaw - desired.yaw) + Math.abs(current.pitch - desired.pitch) > .001) schedule();
+  }
+
+  function schedule() {
+    if (!frame && visible) frame = requestAnimationFrame(draw);
+  }
+
+  const resize = new ResizeObserver(() => {
+    const { clientWidth: width, clientHeight: height } = container;
+    if (!width || !height) return;
+    renderer.setSize(width, height);
+    camera.aspect = width / height;
+    distance = Math.max(5.5, 4.2 / camera.aspect);
+    camera.updateProjectionMatrix();
+    schedule();
+  });
+  resize.observe(container);
+  const observer = new IntersectionObserver(([entry]) => {
+    visible = entry.isIntersecting;
+    schedule();
+  });
+  observer.observe(container);
+
+  function down(event) {
+    if (drag || event.button !== 0) return;
+    drag = { id: event.pointerId, x: event.clientX, y: event.clientY, ...desired };
+    canvas.setPointerCapture(event.pointerId);
+    canvas.dataset.dragging = 'true';
+  }
+  function move(event) {
+    if (drag?.id !== event.pointerId) return;
+    desired.yaw = drag.yaw - (event.clientX - drag.x) * .011;
+    desired.pitch = THREE.MathUtils.clamp(drag.pitch + (event.clientY - drag.y) * .006, -.15, .62);
+    schedule();
+  }
+  function up(event) {
+    if (drag?.id !== event.pointerId) return;
+    drag = null;
+    delete canvas.dataset.dragging;
+  }
+  function keyboard(event) {
+    switch (event.key) {
+      case 'Home': Object.assign(desired, initialView); break;
+      case 'ArrowLeft': desired.yaw += .22; break;
+      case 'ArrowRight': desired.yaw -= .22; break;
+      case 'ArrowUp': desired.pitch = Math.min(.62, desired.pitch + .10); break;
+      case 'ArrowDown': desired.pitch = Math.max(-.15, desired.pitch - .10); break;
+      default: return;
+    }
+    event.preventDefault();
+    schedule();
+  }
+  function lost(event) {
+    event.preventDefault();
+    container.classList.remove('ready');
+  }
+
+  const listeners = { pointerdown: down, pointermove: move, pointerup: up, pointercancel: up,
+    lostpointercapture: up, keydown: keyboard, webglcontextlost: lost, webglcontextrestored: schedule };
+  for (const [event, listener] of Object.entries(listeners)) canvas.addEventListener(event, listener);
+  return { dispose() {
+    cancelAnimationFrame(frame);
+    resize.disconnect();
+    observer.disconnect();
+    for (const [event, listener] of Object.entries(listeners)) canvas.removeEventListener(event, listener);
+    const geometries = new Set();
+    const textures = new Set([grain]);
+    scene.traverse(node => {
+      if (node.geometry) geometries.add(node.geometry);
+      if (node.material) materials.add(node.material);
+    });
+    materials.forEach(material => {
+      Object.values(material).forEach(value => { if (value?.isTexture) textures.add(value); });
+      material.dispose();
+    });
+    textures.forEach(texture => texture.dispose());
+    geometries.forEach(geometry => geometry.dispose());
+    environment.dispose();
+    renderer.dispose();
+    canvas.remove();
+  } };
 }
