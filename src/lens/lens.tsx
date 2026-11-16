@@ -19,8 +19,8 @@ const lights = [
   { id: 'none', label: 'No light' },
 ] as const;
 type Light = typeof lights[number]['id'];
-const photo = 'assets/dental-study-casts.webp';
-const detailPhoto = 'assets/dental-study-casts-detail.webp';
+const photo = 'assets/dental-casts-rebuilt.webp';
+const detailPhoto = photo;
 const defaultPosition = { x: .46, y: .49 };
 
 function LoupeViewer({ power, light }: { power: Magnification; light: Light }) {
