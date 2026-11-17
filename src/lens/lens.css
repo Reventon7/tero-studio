@@ -128,7 +128,7 @@
   transform: translate(-50%, -50%);
 }
 .lens-reticle::after { transform: translate(-50%, -50%) rotate(90deg); }
-.lens-controls { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); align-items: start; gap: 24px clamp(24px, 4vw, 60px); }
+.lens-controls { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; }
 .lens-fieldset { min-inline-size: 0; padding: 0; margin: 0; border: 0; }
 .lens-option-group { margin-top: clamp(13px, 1.25vw, 29px); }
 .lens-pill { display: inline-grid; position: relative; cursor: pointer; }
@@ -160,7 +160,6 @@
 @media (max-width: 560px) {
   #lens-interactive:not(:has(.lens-layout))::before { aspect-ratio: 4 / 5; }
   #lens-interactive:not(:has(.lens-layout))::after { height: 210px; }
-  .lens-controls { grid-template-columns: 1fr; }
   .lens-pill > span { padding-inline: 13px; }
   .lens-viewer { aspect-ratio: 4 / 5; }
   .lens-glass { width: 69%; }

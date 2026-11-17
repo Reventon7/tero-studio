@@ -41,7 +41,7 @@ lightToggle.addEventListener('click', () => {
 });
 
 const dialog=$('#detail-dialog'),menu=$('#mobile-menu');let opener;
-function openDialog(kind){opener=document.activeElement;const data={anatomy:{title:'Every element.<br>One perspective.',image:'hero',alt:'Original TERO loupe photography',text:'A closer look at the relationship between frame, optics and light. The hero film shows how the parts come together.',list:['Frame and temple design','Twin optical housings','Eyewear-mounted lighting'],note:'Illustrative geometry, not a dimensional or internal engineering model.'},detail:{title:'The finer details.',image:'detail',alt:'TERO optical housing close-up',text:'The original photography reveals the finish and proportions of the TERO optical housing. Explore its form, from the front lens to the meeting of optic and frame.'},kit:{title:'Light. Complete.',image:'light-kit',alt:'TERO lighting kit and accessories',text:'The supplied kit photography shows the lighting system with its accessories and filter. Refer to your supplier to confirm kit contents and frame compatibility.'},chair:{title:'A place for focus.',image:'chair',alt:'TERO chair with black saddle-style seat',text:'Explore the TERO seating collection in the original product photograph. A saddle-style seat, support and wheeled base complete the composition.'}}[kind];if(!data)return;const content=`<div class="dialog-grid"><img src="assets/${data.image}.webp" alt="${data.alt}"><div><h2 id="dialog-title">${data.title}</h2><p>${data.text}</p>${data.list?'<ul>'+data.list.map(s=>'<li>'+s+'</li>').join('')+'</ul>':''}${data.note?'<p class="dialog-note">'+data.note+'</p>':''}<a class="text-link" href="assets/TERO-catalog.pdf" target="_blank" rel="noopener">The TERO catalog <span>↗</span></a></div></div>`;$('#dialog-content').innerHTML=content;dialog.showModal();document.body.style.overflow='hidden'}
+function openDialog(kind){opener=document.activeElement;const data={anatomy:{title:'Every element.<br>One perspective.',image:'hero',alt:'Original TERO loupe photography',text:'A closer look at the relationship between frame, optics and light. The hero film shows how the parts come together.',list:['Frame and temple design','Twin optical housings','Eyewear-mounted lighting'],note:'Illustrative geometry, not a dimensional or internal engineering model.'},detail:{title:'The finer details.',image:'detail',alt:'TERO optical housing close-up',text:'The original photography reveals the finish and proportions of the TERO optical housing. Explore its form, from the front lens to the meeting of optic and frame.'},kit:{title:'Light. Complete.',image:'light-kit',alt:'TERO lighting kit and accessories',text:'The supplied kit photography shows the lighting system with its accessories and filter. Refer to your supplier to confirm kit contents and frame compatibility.'},chair:{title:'A place for focus.',image:'chair',alt:'TERO chair with black saddle-style seat',text:'Explore the TERO seating collection in the original product photograph. A saddle-style seat, support and wheeled base complete the composition.'}}[kind];if(!data)return;const content=`<div class="dialog-grid"><img src="assets/${data.image}.webp" alt="${data.alt}"><div><h2 id="dialog-title">${data.title}</h2><p>${data.text}</p>${data.list?'<ul>'+data.list.map(s=>'<li>'+s+'</li>').join('')+'</ul>':''}${data.note?'<p class="dialog-note">'+data.note+'</p>':''}</div></div>`;$('#dialog-content').innerHTML=content;dialog.showModal();document.body.style.overflow='hidden'}
 $$('[data-open]').forEach(b=>b.addEventListener('click',()=>openDialog(b.dataset.open)));
 $$('[data-close]').forEach(b=>b.addEventListener('click',()=>b.closest('dialog').close()));
 for(const d of [dialog,menu]){d.addEventListener('click',e=>{if(e.target!==d)return;const r=d.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)d.close()});d.addEventListener('close',()=>{document.body.style.overflow='';$('.menu-toggle').setAttribute('aria-expanded','false');opener?.focus()})}
@@ -283,15 +283,6 @@ addEventListener('pagehide', () => {
   chairObserver.disconnect();
   chairScene?.dispose();
 }, { once: true });
-
-const contactPanel = $('#contact');
-if (location.hash === '#contact') contactPanel.open = true;
-$$('a[href="#contact"]').forEach(link => link.addEventListener('click', () => {
-  contactPanel.open = true;
-}));
-addEventListener('hashchange', () => {
-  if (location.hash === '#contact') contactPanel.open = true;
-});
 
 const contactForm = $('#contact-form');
 contactForm.addEventListener('submit', event => {
