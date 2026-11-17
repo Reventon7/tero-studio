@@ -284,6 +284,71 @@ addEventListener('pagehide', () => {
   chairScene?.dispose();
 }, { once: true });
 
+const contactSection = $('#contact');
+let stopContactScroll;
+
+function goToContact(event) {
+  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+  event.preventDefault();
+  stopContactScroll?.();
+  // The mobile menu closes before this handler runs. Unlock before measuring the page.
+  if (event.currentTarget.closest('#mobile-menu')) document.body.style.overflow = '';
+
+  const destination = () => {
+    const offset = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
+    const top = contactSection.getBoundingClientRect().top + scrollY - offset;
+    return Math.max(0, Math.min(top, document.documentElement.scrollHeight - innerHeight));
+  };
+  const finish = () => {
+    if (location.hash !== '#contact') history.pushState(null, '', '#contact');
+    contactSection.focus({ preventScroll: true });
+  };
+  if (motion.matches) {
+    scrollTo({ top: destination(), behavior: 'instant' });
+    finish();
+    return;
+  }
+
+  const start = scrollY;
+  const duration = Math.min(2150, Math.max(380, Math.abs(destination() - start) * .26));
+  const input = new AbortController();
+  let frame;
+  let started;
+  stopContactScroll = () => {
+    cancelAnimationFrame(frame);
+    input.abort();
+    stopContactScroll = undefined;
+  };
+  const listener = { passive: true, signal: input.signal };
+  for (const type of ['wheel', 'touchstart', 'pointerdown', 'popstate']) {
+    addEventListener(type, stopContactScroll, listener);
+  }
+  addEventListener('keydown', event => {
+    if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' ', 'Escape', 'Tab'].includes(event.key)) {
+      stopContactScroll?.();
+    }
+  }, listener);
+
+  function advance(now) {
+    started ??= now;
+    const progress = Math.min(1, (now - started) / duration);
+    const eased = progress * progress * (3 - 2 * progress);
+    // Re-read the destination as lazy sections above Contact settle.
+    scrollTo({ top: start + (destination() - start) * eased, behavior: 'instant' });
+    if (progress < 1) {
+      frame = requestAnimationFrame(advance);
+    } else {
+      stopContactScroll();
+      finish();
+    }
+  }
+  frame = requestAnimationFrame(advance);
+}
+
+$$('.site-header a[href="#contact"], #mobile-menu a[href="#contact"]').forEach(link => {
+  link.addEventListener('click', goToContact);
+});
+
 const contactForm = $('#contact-form');
 contactForm.addEventListener('submit', event => {
   event.preventDefault();
@@ -293,7 +358,7 @@ contactForm.addEventListener('submit', event => {
     'TERO fitting request',
     `Full name: ${form.get('name').trim()}`,
     `Email: ${form.get('email').trim()}`,
-    `CT: ${form.get('ct').trim()}`,
+    `City: ${form.get('city').trim()}`,
     form.get('phone').trim() && `Phone: ${form.get('phone').trim()}`,
     `Specialty: ${form.get('specialty')}`,
     interests.length && `Interested in: ${interests.join(', ')}`,
