@@ -297,9 +297,15 @@ const contactForm = $('#contact-form');
 contactForm.addEventListener('submit', event => {
   event.preventDefault();
   const form = new FormData(event.currentTarget);
+  const interests = form.getAll('interest');
   const message = [
-    `Name: ${form.get('name').trim()}`,
-    form.get('email') && `Email: ${form.get('email').trim()}`,
+    'TERO fitting request',
+    `Full name: ${form.get('name').trim()}`,
+    `Email: ${form.get('email').trim()}`,
+    `CT: ${form.get('ct').trim()}`,
+    form.get('phone').trim() && `Phone: ${form.get('phone').trim()}`,
+    `Specialty: ${form.get('specialty')}`,
+    interests.length && `Interested in: ${interests.join(', ')}`,
     form.get('message').trim()
   ].filter(Boolean).join('\n');
   const separator = /iPad|iPhone|iPod/.test(navigator.userAgent) ? '&' : '?';

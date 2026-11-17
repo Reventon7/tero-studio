@@ -8,8 +8,10 @@ const magnifications = [
   { scale: 2.5, label: '2.5×' },
   { scale: 3, label: '3.0×' },
   { scale: 3.5, label: '3.5×' },
-  { scale: 4.5, label: '4.5×' },
-  { scale: 5.5, label: '5.5×' },
+  { scale: 4, label: '4.0×' },
+  { scale: 5, label: '5.0×' },
+  { scale: 6, label: '6.0×' },
+  { scale: 8, label: '8.0×' },
 ] as const;
 type Magnification = typeof magnifications[number];
 
