@@ -4,81 +4,40 @@ import { RoomEnvironment } from './vendor/RoomEnvironment.js';
 
 const initialView = { yaw: .68, pitch: .13 };
 
-function upholsteryGrain() {
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = 128;
-  const ctx = canvas.getContext('2d');
-  const image = ctx.createImageData(128, 128);
-  for (let i = 0; i < image.data.length; i += 4) {
-    const shade = 90 + ((Math.imul(i + 1, 1597334677) >>> 24) % 82);
-    image.data.set([shade, shade, shade, 255], i);
-  }
-  ctx.putImageData(image, 0, 0);
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-  texture.repeat.set(3, 3);
-  return texture;
-}
-
-function contourCushion(mesh, crown) {
-  const geometry = mesh.geometry;
-  const position = geometry.getAttribute('position');
-  geometry.computeBoundingBox();
-  const center = geometry.boundingBox.getCenter(new THREE.Vector3());
-  const size = geometry.boundingBox.getSize(new THREE.Vector3());
-  for (let i = 0; i < position.count; i++) {
-    const x = (position.getX(i) - center.x) * 2 / size.x;
-    const y = (position.getY(i) - center.y) * 2 / size.y;
-    const z = position.getZ(i);
-    const face = THREE.MathUtils.smoothstep(z, center.z, geometry.boundingBox.max.z);
-    position.setZ(i, z + crown * face * Math.max(0, 1 - x * x - y * y));
-  }
-  position.needsUpdate = true;
-  geometry.computeVertexNormals();
-  geometry.computeBoundingBox();
-  geometry.computeBoundingSphere();
-  if (!geometry.hasAttribute('uv')) {
-    const uv = new Float32Array(position.count * 2);
-    for (let i = 0; i < position.count; i++) {
-      uv[i * 2] = (position.getX(i) - center.x) / size.x + .5;
-      uv[i * 2 + 1] = (position.getY(i) - center.y) / size.y + .5;
-    }
-    geometry.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
-  }
-}
-
-function finishChair(product, grain) {
-  const cushions = new Map([
-    ['teroSeat', .008], ['teroBackCushion', .011], ['teroForearmPad', .005]
-  ]);
+function restoreBackShell(product) {
   product.traverse(mesh => {
     if (!mesh.isMesh) return;
-    const name = mesh.name.replace(/_\d+$/, '');
-    if (cushions.has(name)) {
-      // Re-contour the padded faces while retaining the measured mounting points.
-      contourCushion(mesh, cushions.get(name));
-      mesh.material = new THREE.MeshPhysicalMaterial({ color: 0x1a1b1d, roughness: .63,
-        sheen: .14, sheenRoughness: .7, sheenColor: 0x454847,
-        bumpMap: grain, bumpScale: .00075 });
-    } else if (/^tero(?:ChromeSpoke|GasColumn)$/.test(name)) {
-      mesh.material = new THREE.MeshStandardMaterial({ color: 0xc5c9cc, metalness: .96, roughness: .2 });
-    } else if (name === 'teroBackShell' || name === 'teroSeatShell') {
-      mesh.material = new THREE.MeshPhysicalMaterial({ color: 0xe4e3dc, roughness: .36, clearcoat: .22, clearcoatRoughness: .43 });
-    } else if (name === 'teroCasterWheel') {
-      mesh.material = new THREE.MeshStandardMaterial({ color: 0x666a6b, roughness: .67 });
-    }
+    mesh.geometry.computeVertexNormals();
+    mesh.material.flatShading = false;
+    // The reference rear view shows an ivory shell behind the black cushion.
+    // Preserve the baked texture elsewhere, including the cushion's rolled edge.
+    mesh.material.onBeforeCompile = shader => {
+      const varyings = 'varying vec3 chairPoint; varying vec3 chairNormal;\n';
+      shader.vertexShader = varyings + shader.vertexShader.replace('#include <begin_vertex>',
+        '#include <begin_vertex>\nchairPoint = position; chairNormal = normal;');
+      shader.fragmentShader = varyings + shader.fragmentShader.replace('#include <color_fragment>', `
+        #include <color_fragment>
+        float shellBody = smoothstep(.113, .145, chairPoint.y)
+          * (1.0 - smoothstep(.485, .503, chairPoint.y))
+          * (1.0 - smoothstep(.166, .197, abs(chairPoint.x - .012)))
+          * (1.0 - smoothstep(-.188, -.154, chairPoint.z));
+        float shellFacing = smoothstep(.42, .65, -normalize(chairNormal).z);
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.71, .69, .65), shellBody * shellFacing);
+      `);
+    };
   });
 }
 
 export async function createChairScene(container) {
-  const { scene: product } = await new GLTFLoader().loadAsync(new URL('./assets/models/chair.glb', import.meta.url).href);
+  const { scene: product } = await new GLTFLoader().loadAsync(new URL('./assets/models/tero-chair-higgsfield.glb', import.meta.url).href);
+  restoreBackShell(product);
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = .98;
   const canvas = renderer.domElement;
   canvas.tabIndex = 0;
-  canvas.setAttribute('aria-label', 'Rotate the TERO chair with the arrow keys. Press Home to reset.');
+  canvas.setAttribute('aria-label', 'Rotate the TERO chair with the arrow keys. Use plus or minus to zoom, or Home to reset.');
   container.append(canvas);
 
   const scene = new THREE.Scene();
@@ -96,10 +55,6 @@ export async function createChairScene(container) {
   rim.position.set(3, 4, -4);
   scene.add(key, rim, new THREE.HemisphereLight(0xdce7f2, 0x413d36, .65));
 
-  const grain = upholsteryGrain();
-  const materials = new Set();
-  product.traverse(node => { if (node.isMesh) materials.add(node.material); });
-  finishChair(product, grain);
   const bounds = new THREE.Box3().setFromObject(product);
   const size = bounds.getSize(new THREE.Vector3());
   const center = bounds.getCenter(new THREE.Vector3());
@@ -124,20 +79,28 @@ export async function createChairScene(container) {
   const current = { ...initialView };
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   let distance = 5.8;
+  let zoom = 1;
+  let desiredZoom = 1;
   let frame = 0;
   let drag;
   let visible = false;
+  const controls = document.querySelector('#chair-controls');
+  const zoomOut = controls.querySelector('[data-chair-action="out"]');
+  const zoomIn = controls.querySelector('[data-chair-action="in"]');
 
   function draw() {
     frame = 0;
     current.yaw = THREE.MathUtils.lerp(current.yaw, desired.yaw, reduced.matches ? 1 : .28);
     current.pitch = THREE.MathUtils.lerp(current.pitch, desired.pitch, reduced.matches ? 1 : .28);
-    const horizontal = distance * Math.cos(current.pitch);
-    camera.position.set(Math.sin(current.yaw) * horizontal, focus.y + Math.sin(current.pitch) * distance, Math.cos(current.yaw) * horizontal);
+    zoom = THREE.MathUtils.lerp(zoom, desiredZoom, reduced.matches ? 1 : .24);
+    const radius = distance / zoom;
+    const horizontal = radius * Math.cos(current.pitch);
+    camera.position.set(Math.sin(current.yaw) * horizontal, focus.y + Math.sin(current.pitch) * radius, Math.cos(current.yaw) * horizontal);
     camera.lookAt(focus);
     renderer.render(scene, camera);
     container.classList.add('ready');
-    if (Math.abs(current.yaw - desired.yaw) + Math.abs(current.pitch - desired.pitch) > .001) schedule();
+    controls.hidden = false;
+    if (Math.abs(current.yaw - desired.yaw) + Math.abs(current.pitch - desired.pitch) + Math.abs(zoom - desiredZoom) > .001) schedule();
   }
 
   function schedule() {
@@ -177,9 +140,32 @@ export async function createChairScene(container) {
     drag = null;
     delete canvas.dataset.dragging;
   }
+  function setZoom(value) {
+    desiredZoom = THREE.MathUtils.clamp(value, .85, 1.75);
+    zoomOut.disabled = desiredZoom === .85;
+    zoomIn.disabled = desiredZoom === 1.75;
+    schedule();
+  }
+  function reset() {
+    Object.assign(desired, initialView);
+    setZoom(1);
+  }
+  function toggleZoom() {
+    setZoom(desiredZoom > 1.1 ? 1 : 1.55);
+  }
+  function useControl(event) {
+    switch (event.target.closest('button')?.dataset.chairAction) {
+      case 'out': setZoom(desiredZoom - .23); break;
+      case 'in': setZoom(desiredZoom + .23); break;
+      case 'reset': reset(); break;
+    }
+  }
   function keyboard(event) {
     switch (event.key) {
-      case 'Home': Object.assign(desired, initialView); break;
+      case 'Home': reset(); break;
+      case '+':
+      case '=': setZoom(desiredZoom + .23); break;
+      case '-': setZoom(desiredZoom - .23); break;
       case 'ArrowLeft': desired.yaw += .22; break;
       case 'ArrowRight': desired.yaw -= .22; break;
       case 'ArrowUp': desired.pitch = Math.min(.62, desired.pitch + .10); break;
@@ -192,18 +178,23 @@ export async function createChairScene(container) {
   function lost(event) {
     event.preventDefault();
     container.classList.remove('ready');
+    controls.hidden = true;
   }
 
   const listeners = { pointerdown: down, pointermove: move, pointerup: up, pointercancel: up,
-    lostpointercapture: up, keydown: keyboard, webglcontextlost: lost, webglcontextrestored: schedule };
+    lostpointercapture: up, dblclick: toggleZoom, keydown: keyboard, webglcontextlost: lost, webglcontextrestored: schedule };
   for (const [event, listener] of Object.entries(listeners)) canvas.addEventListener(event, listener);
+  controls.addEventListener('click', useControl);
   return { dispose() {
     cancelAnimationFrame(frame);
     resize.disconnect();
     observer.disconnect();
+    controls.removeEventListener('click', useControl);
+    controls.hidden = true;
     for (const [event, listener] of Object.entries(listeners)) canvas.removeEventListener(event, listener);
     const geometries = new Set();
-    const textures = new Set([grain]);
+    const materials = new Set();
+    const textures = new Set();
     scene.traverse(node => {
       if (node.geometry) geometries.add(node.geometry);
       if (node.material) materials.add(node.material);

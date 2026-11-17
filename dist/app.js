@@ -220,7 +220,7 @@ async function initMotion(){await document.fonts.ready;if(!window.gsap||!window.
  const statement=$('#manifesto-text'),words=statement.textContent.trim().split(/\s+/);statement.setAttribute('aria-label',words.join(' '));statement.innerHTML=words.map(w=>`<span aria-hidden="true">${w}</span>`).join(' ');const spans=[...statement.children];ScrollTrigger.create({trigger:statement,start:'top 85%',end:'bottom 40%',onUpdate:self=>spans.forEach((s,i)=>s.classList.toggle('lit',motion.matches||i/spans.length<self.progress+.08))});if(motion.matches)spans.forEach(s=>s.classList.add('lit'));ScrollTrigger.refresh();window.addEventListener('pagehide',()=>mm.revert(),{once:true})}
 initMotion().then(() => {
   // ScrollTrigger's initial refresh can interrupt the browser's smooth fragment scroll.
-  if ([lensAnchor, '#contact'].includes(entryAnchor) && location.hash === entryAnchor && performance.getEntriesByType('navigation')[0]?.type === 'navigate') {
+  if ([lensAnchor, '#seating', '#contact'].includes(entryAnchor) && location.hash === entryAnchor && performance.getEntriesByType('navigation')[0]?.type === 'navigate') {
     document.querySelector(entryAnchor).scrollIntoView({ behavior: 'instant' });
   }
 });

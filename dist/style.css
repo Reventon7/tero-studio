@@ -172,6 +172,9 @@
 #chair-scene:not(.ready) canvas { visibility: hidden; }
 #chair-scene canvas { outline-offset: -4px; }
 #chair-guide { color: #d2d9dd; font-size: 13px; margin-top: 8px; }
+#chair-controls:not([hidden]) { display: flex; justify-content: center; gap: 8px; margin-top: 12px; }
+#chair-controls button { min-height: 44px; min-width: 44px; padding: 6px 12px; color: #f1f4f2; border: 1px solid #ffffff42; border-radius: 8px; }
+#chair-controls button:hover:not(:disabled) { background: #ffffff15; }
 
 .manifesto-body { display: block; text-align: center; }
 .manifesto-body h2 { margin-inline: auto; }
