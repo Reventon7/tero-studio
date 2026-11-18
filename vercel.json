@@ -5,12 +5,20 @@
   "outputDirectory": "dist",
   "headers": [
     {
-      "source": "/assets/hero-magnific-hd-48/:file",
-      "headers": [{ "key": "Cache-Control", "value": "public, max-age=86400, stale-while-revalidate=604800" }]
+      "source": "/assets/:dir(hero-magnific-hd-48|dentist-final-48)/:file(scrub-[0-9]+-v[0-9]+\\.mp4)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
     },
     {
-      "source": "/assets/dentist-final-48/:file",
-      "headers": [{ "key": "Cache-Control", "value": "public, max-age=86400, stale-while-revalidate=604800" }]
+      "source": "/assets/models/:file([a-z0-9-]+-v[0-9]+\\.glb)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+    },
+    {
+      "source": "/fonts/:file(font-[0-9]+-v[0-9]+\\.woff2)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+    },
+    {
+      "source": "/bundles/:file([a-z]+-[A-Z0-9]+\\.js)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
     }
   ]
 }

@@ -4,10 +4,12 @@ import {refineProduct,heroPose} from './product-refinement.js';
 import {RoomEnvironment} from './vendor/RoomEnvironment.js';
 
 // Supplied TERO GLB assets. Preserve their geometry, materials and filter hinge.
-export async function createProductScene(container, {reducedMotion=false,lightingOnly=false,onReady=()=>{}}={}) {
- const asset=await new GLTFLoader().loadAsync(new URL(lightingOnly?'./assets/models/light.glb':'./assets/models/assembled.glb',import.meta.url).href);
+export async function createProductScene(container, {reducedMotion=false,lightingOnly=false,onReady=()=>{},modelBytes}={}) {
+ const loader=new GLTFLoader();
+ const modelPath=lightingOnly?'/assets/models/light-v1.glb':'/assets/models/assembled.glb';
+ const asset=modelBytes ? await loader.parseAsync(modelBytes, '') : await loader.loadAsync(modelPath);
  const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,powerPreference:'high-performance'});
- renderer.setPixelRatio(Math.min(devicePixelRatio,1.65));
+ renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));
  renderer.toneMapping=THREE.ACESFilmicToneMapping;
  renderer.toneMappingExposure=1.0;
  renderer.setClearColor(0x000000,0);
@@ -58,6 +60,7 @@ export async function createProductScene(container, {reducedMotion=false,lightin
  const timer=new THREE.Timer();timer.connect(document);
  function resize(){const w=container.clientWidth,h=container.clientHeight;if(!w||!h)return;renderer.setSize(w,h);camera.aspect=w/h;camera.position.z=w/h<1.15?16:12.6;camera.updateProjectionMatrix()}
  const resizer=new ResizeObserver(resize);resizer.observe(container);resize();
+ await renderer.compileAsync(scene,camera);
  const observer = new IntersectionObserver(([entry]) => {
   renderer.setAnimationLoop(entry.isIntersecting ? render : null);
  });

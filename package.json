@@ -1,1 +1,28 @@
-{"name":"tero-studio","version":"2.0.0","private":true,"type":"module","scripts":{"dev":"npm run build:lens && node server.mjs","check":"node --check dist/app.js && node --check dist/hero-film.js && node --check dist/scene.js && node --check dist/product-refinement.js && node --check dist/chair-scene.js && node --check dist/human-study.js && npm run check:lens","build":"npm run check && npm run build:lens","build:lens":"esbuild src/lens/lens.tsx --bundle --minify --format=esm --jsx=automatic --outfile=dist/lens.js && tailwindcss -i src/lens/lens.css -o dist/lens.css --minify","check:lens":"tsc --noEmit --target ES2023 --module ESNext --moduleResolution bundler --lib DOM,DOM.Iterable,ES2023 --jsx react-jsx --strict --skipLibCheck src/lens/lens.tsx"},"dependencies":{"gsap":"^3.14.0","motion":"^14.14.0","react":"^19.3.1","react-dom":"^19.3.1","three":"0.186.1"},"devDependencies":{"@tailwindcss/cli":"^4.3.5","@types/react":"^19.3.0","@types/react-dom":"^19.3.0","esbuild":"^0.28.2","tailwindcss":"^4.3.5","typescript":"^7.0.2"}}
+{
+  "name": "tero-studio",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npm run build && node server.mjs",
+    "check": "node --check dist/app.js && node --check dist/hero-film.js && node --check dist/scene.js && node --check dist/product-refinement.js && node --check dist/chair-scene.js && node --check build-bundles.mjs && npm run check:lens",
+    "build": "npm run check && node build-bundles.mjs && npm run build:lens",
+    "build:lens": "tailwindcss -i src/lens/lens.css -o dist/lens.css --minify",
+    "check:lens": "tsc --noEmit --target ES2023 --module ESNext --moduleResolution bundler --lib DOM,DOM.Iterable,ES2023 --jsx react-jsx --strict --skipLibCheck src/lens/lens.tsx"
+  },
+  "dependencies": {
+    "gsap": "^3.14.0",
+    "motion": "^14.14.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "three": "0.186.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "esbuild": "^0.28.2",
+    "tailwindcss": "^4.3.5",
+    "typescript": "^7.0.2"
+  }
+}

@@ -1,4 +1,40 @@
 import {createScrollFilm} from './hero-film.js';
+import {loadChair, loadLens, loadLighting} from './bundles/entries.js';
+
+function reuseLoad(load) {
+  let pending;
+  return () => pending ??= load().catch(error => {
+    pending = undefined;
+    throw error;
+  });
+}
+
+const lensModule = reuseLoad(loadLens);
+const lightModule = reuseLoad(loadLighting);
+const chairModule = reuseLoad(loadChair);
+function loadModel(filename) {
+  return reuseLoad(async () => {
+    const response = await fetch(new URL(`./assets/models/${filename}`, import.meta.url), { priority: 'low' });
+    if (!response.ok) throw new Error(`Model unavailable: ${filename}`);
+    return response.arrayBuffer();
+  });
+}
+const lightModel = loadModel('light-v1.glb');
+const chairModel = loadModel('tero-chair-higgsfield-v1.glb');
+
+function warmBelowFold() {
+  const idle = window.requestIdleCallback?.bind(window) ?? (callback => setTimeout(callback, 120));
+  const loads = [lightModule, chairModule, lensModule, lightModel, chairModel];
+  function next() {
+    const load = loads.shift();
+    if (!load) return;
+    idle(() => {
+      load().catch(() => { /* The visible section retries a failed preload. */ });
+      next();
+    });
+  }
+  next();
+}
 
 const lensMount = document.querySelector('#lens-interactive');
 const lensAnchor = '#through-the-lens';
@@ -7,7 +43,7 @@ const lensObserver = new IntersectionObserver(async entries => {
   if (!entries.some(entry => entry.isIntersecting)) return;
   lensObserver.disconnect();
   try {
-    const { mountLens } = await import('./lens.js');
+    const { mountLens } = await lensModule();
     mountLens(lensMount);
   } catch (error) {
     console.error('TERO comparison unavailable:', error);
@@ -99,7 +135,7 @@ function animateChapters(group) {
 const updateHeroCopy = animateChapters(heroPanel.querySelector('.film-chapters'));
 
 const heroFilm = createScrollFilm($('#hero-film'), $('#hero-ambient'), motion, {
-  media: 'scrub-1440-v2.mp4',
+  media: { large: 'scrub-1440-v3.mp4', desktop: 'scrub-1080-v3.mp4', mobile: 'scrub-720-v3.mp4' },
   directory: 'hero-magnific-hd-48', frameCount: 576, openingFrame: 64,
   widths: [1920, 832],
   ambientMedia: '(max-width: 760px), (max-aspect-ratio: 3/2), (min-aspect-ratio: 8/5)',
@@ -109,7 +145,12 @@ const heroFilm = createScrollFilm($('#hero-film'), $('#hero-ambient'), motion, {
     floor: { left: .075, top: .72, fadeEnd: .79 },
     width: .18
   },
-  onFrame: updateHeroCopy
+  onFrame: updateHeroCopy,
+  onReady() {
+    prepareDentist();
+    measureScroll();
+    warmBelowFold();
+  }
 });
 let dentistFilm;
 const dentistFrameCount = 575;
@@ -119,9 +160,9 @@ const updateDentistCopy = animateChapters(dentistChapters);
 
 function prepareDentist() {
   dentistFilm ??= createScrollFilm($('#dentist-film'), $('#dentist-ambient'), motion, {
-    media: 'scrub-720-v2.mp4',
+    media: { desktop: 'scrub-720-v3.mp4', mobile: 'scrub-540-v3.mp4' },
     directory: 'dentist-final-48', frameCount: dentistFrameCount, widths: [1152, 768],
-    settleTime: 48, retainEndpoints: true, onFrame: updateDentistCopy
+    settleTime: 48, retainEndpoints: true, startActive: false, onFrame: updateDentistCopy
   });
 }
 
@@ -175,7 +216,6 @@ function scrollState() {
   heroFilm.setActive(blend < 1);
   heroFilm.setProgress(motion.matches ? still : progress);
   const dentistNear = y >= blendStart - height * 1.55 && y < stageRelease + height;
-  if (dentistNear) prepareDentist();
   dentistFilm?.setActive(dentistNear);
   const clinicalStill = clinicalProgress < ergonomicFrame / (dentistFrameCount - 1) ? 0 : 1;
   dentistFilm?.setProgress(motion.matches ? clinicalStill : clinicalProgress, {
@@ -229,8 +269,10 @@ const lightObserver = new IntersectionObserver(async entries => {
   lightObserver.disconnect();
   const lightScene = $('#light-scene');
   try {
-    const { createProductScene } = await import('./scene.js');
-    lightingScene = await createProductScene(lightScene, { reducedMotion: motion.matches, lightingOnly: true });
+    const [{ createProductScene }, modelBytes] = await Promise.all([lightModule(), lightModel()]);
+    if (leavingPage) return;
+    lightingScene = await createProductScene(lightScene, { reducedMotion: motion.matches, lightingOnly: true, modelBytes });
+    if (leavingPage) { lightingScene.dispose(); return; }
     lightingScene.setFilter(manualFilter ? Number(filterActive) : filterProgress, { immediate: true });
   } catch (error) {
     console.error('TERO headlight unavailable:', error);
@@ -266,8 +308,9 @@ const chairObserver = new IntersectionObserver(async entries => {
   if (!entries.some(entry => entry.isIntersecting)) return;
   chairObserver.disconnect();
   try {
-    const { createChairScene } = await import('./chair-scene.js');
-    chairScene = await createChairScene(chairContainer);
+    const [{ createChairScene }, modelBytes] = await Promise.all([chairModule(), chairModel()]);
+    if (leavingPage) return;
+    chairScene = await createChairScene(chairContainer, modelBytes);
     if (leavingPage) chairScene.dispose();
   } catch (error) {
     console.error('TERO chair unavailable:', error);

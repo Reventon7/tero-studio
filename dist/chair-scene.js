@@ -28,11 +28,14 @@ function restoreBackShell(product) {
   });
 }
 
-export async function createChairScene(container) {
-  const { scene: product } = await new GLTFLoader().loadAsync(new URL('./assets/models/tero-chair-higgsfield.glb', import.meta.url).href);
+export async function createChairScene(container, modelBytes) {
+  const loader = new GLTFLoader();
+  const { scene: product } = modelBytes
+    ? await loader.parseAsync(modelBytes, '')
+    : await loader.loadAsync('/assets/models/tero-chair-higgsfield-v1.glb');
   restoreBackShell(product);
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = .98;
   const canvas = renderer.domElement;
@@ -75,6 +78,9 @@ export async function createChairScene(container) {
 
   const camera = new THREE.PerspectiveCamera(31, 1, .05, 50);
   const focus = new THREE.Vector3(0, 1.18, 0);
+  camera.position.set(0, 1.8, 5.8);
+  camera.lookAt(focus);
+  await renderer.compileAsync(scene, camera);
   const desired = { ...initialView };
   const current = { ...initialView };
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
@@ -90,6 +96,7 @@ export async function createChairScene(container) {
 
   function draw() {
     frame = 0;
+    if (!visible) return;
     current.yaw = THREE.MathUtils.lerp(current.yaw, desired.yaw, reduced.matches ? 1 : .28);
     current.pitch = THREE.MathUtils.lerp(current.pitch, desired.pitch, reduced.matches ? 1 : .28);
     zoom = THREE.MathUtils.lerp(zoom, desiredZoom, reduced.matches ? 1 : .24);
@@ -119,7 +126,11 @@ export async function createChairScene(container) {
   resize.observe(container);
   const observer = new IntersectionObserver(([entry]) => {
     visible = entry.isIntersecting;
-    schedule();
+    if (visible) schedule();
+    else {
+      cancelAnimationFrame(frame);
+      frame = 0;
+    }
   });
   observer.observe(container);
 

@@ -10,21 +10,26 @@ const sheetAt = frame => Math.floor(Math.round(frame) / FRAMES_PER_SHEET);
 
 function createFilmBackdrop(ambient, ambientMedia = '(max-aspect-ratio: 8/5), (min-aspect-ratio: 21/9)', ambientStrip) {
   const ambientLayout = matchMedia(ambientMedia);
-  if (ambientStrip) {
-    ambient.width = matchMedia('(max-width: 760px)').matches ? 256 : 960;
-    ambient.height = ambient.width * 9 / 16;
-  }
   const stripLayout = ambientStrip && matchMedia(ambientStrip.media);
+  const stripWidth = 960;
+  const stripHeight = 540;
+  let drawsUntilRefresh = 0;
+  function sizeCanvas() {
+    ambient.width = stripLayout?.matches ? stripWidth : 64;
+    ambient.height = stripLayout?.matches ? stripHeight : 36;
+    drawsUntilRefresh = 0;
+  }
+  sizeCanvas();
   const ambientContext = ambient.getContext('2d', { alpha: false });
   const floorPatch = ambientStrip && document.createElement('canvas');
   let floorContext, floorFade, floorY;
   if (floorPatch) {
-    floorY = Math.round(ambient.height * ambientStrip.floor.top);
-    floorPatch.width = Math.round(ambient.width * ambientStrip.width);
-    floorPatch.height = ambient.height - floorY;
+    floorY = Math.round(stripHeight * ambientStrip.floor.top);
+    floorPatch.width = Math.round(stripWidth * ambientStrip.width);
+    floorPatch.height = stripHeight - floorY;
     floorContext = floorPatch.getContext('2d');
     if (floorContext) {
-      const fadeHeight = ambient.height * (ambientStrip.floor.fadeEnd - ambientStrip.floor.top);
+      const fadeHeight = stripHeight * (ambientStrip.floor.fadeEnd - ambientStrip.floor.top);
       floorFade = floorContext.createLinearGradient(0, 0, 0, fadeHeight);
       floorFade.addColorStop(0, 'transparent');
       floorFade.addColorStop(1, '#000');
@@ -67,30 +72,38 @@ function createFilmBackdrop(ambient, ambientMedia = '(max-aspect-ratio: 8/5), (m
   }
 
   return {
-    draw(image, x, y, width, height) {
+    draw(image, x, y, width, height, force = false) {
       if (!ambientContext || !ambientLayout.matches) return;
+      if (!force && !stripLayout?.matches && drawsUntilRefresh-- > 0) return;
       drawAmbient(image, x, y, width, height);
+      drawsUntilRefresh = 2;
       if (!ambient.classList.contains('ready')) ambient.classList.add('ready');
     },
     onLayoutChange(callback) {
       ambientLayout.addEventListener('change', callback);
-      stripLayout?.addEventListener('change', callback);
+      stripLayout?.addEventListener('change', () => { sizeCanvas(); callback(); });
     }
   };
 }
 
 export function createScrollFilm(canvas, ambient, motion, options) {
   const video = document.createElement('video');
-  if (!options.media || !video.canPlayType('video/mp4; codecs="avc1.640028"')) {
-    return createSheetFilm(canvas, ambient, motion, options);
+  const { directory, media, frameCount, openingFrame = 0, onFrame, onReady, ambientMedia, ambientStrip,
+    settleTime = 95, startActive = true } = options;
+  const mobile = matchMedia('(max-width: 760px)').matches;
+  const highDpi = innerWidth * devicePixelRatio >= 2200;
+  const source = mobile ? media?.mobile : (highDpi && media?.large) || media?.desktop;
+  if (!source || !video.canPlayType('video/mp4; codecs="avc1.640028"')) {
+    const sheets = createSheetFilm(canvas, ambient, motion, options);
+    sheets.setActive(startActive);
+    queueMicrotask(() => onReady?.());
+    return sheets;
   }
-
-  const { directory, media, frameCount, openingFrame = 0, onFrame, ambientMedia, ambientStrip, settleTime = 95 } = options;
   const backdrop = createFilmBackdrop(ambient, ambientMedia, ambientStrip);
   const toTime = frame => Math.floor(frame / 2) / VIDEO_RATE + .004;
   const introEnd = openingFrame / FRAME_RATE;
   const lastTime = toTime(frameCount - 1);
-  let active = true;
+  let active = startActive;
   let opening = Boolean(openingFrame) && !motion.matches;
   let introStarted = false;
   let queued = 0;
@@ -100,6 +113,10 @@ export function createScrollFilm(canvas, ambient, motion, options) {
   let latestProgress = 0;
   let publishedFrame = -1;
   let fallback;
+  let scrubbable = false;
+  let objectUrl;
+  let frameCallback;
+  const download = new AbortController();
 
   video.className = 'film-frames';
   video.setAttribute('aria-hidden', 'true');
@@ -107,11 +124,11 @@ export function createScrollFilm(canvas, ambient, motion, options) {
   video.defaultMuted = true;
   video.playsInline = true;
   video.disablePictureInPicture = true;
-  video.preload = 'none';
+  video.preload = 'auto';
   canvas.after(video);
 
   function publish(mediaTime) {
-    if (!active || video.readyState < 2) return;
+    if (!active || !scrubbable || video.readyState < 2) return;
     const sourceFrame = Math.floor(mediaTime * VIDEO_RATE + .02);
     const frame = sourceFrame === Math.floor((frameCount - 1) / 2) ? frameCount - 1 : sourceFrame * 2;
     if (frame === publishedFrame) return;
@@ -129,7 +146,7 @@ export function createScrollFilm(canvas, ambient, motion, options) {
 
   function update(now) {
     queued = 0;
-    if (!active || fallback || !video.videoWidth) return;
+    if (!active || fallback || !scrubbable) return;
     if (opening) {
       if (!introStarted && video.readyState >= 2) {
         introStarted = true;
@@ -160,7 +177,9 @@ export function createScrollFilm(canvas, ambient, motion, options) {
   }
 
   function watchFrame() {
-    video.requestVideoFrameCallback?.((_, { mediaTime }) => {
+    if (frameCallback !== undefined || !video.requestVideoFrameCallback) return;
+    frameCallback = video.requestVideoFrameCallback((_, { mediaTime }) => {
+      frameCallback = undefined;
       if (fallback) return;
       if (!video.seeking && (opening ? introStarted : Math.abs(mediaTime - video.currentTime) < 1 / VIDEO_RATE)) {
         publish(mediaTime);
@@ -169,23 +188,54 @@ export function createScrollFilm(canvas, ambient, motion, options) {
     });
   }
   watchFrame();
-  video.addEventListener('loadeddata', schedule);
-  video.addEventListener('loadedmetadata', schedule);
+  video.addEventListener('loadeddata', () => {
+    if (scrubbable || fallback) return;
+    if (opening && scrollY > 0) opening = false;
+    scrubbable = true;
+    onReady?.();
+    schedule();
+  });
   video.addEventListener('seeked', () => {
     if (!opening) publish(video.currentTime);
     schedule();
   });
   video.addEventListener('playing', schedule);
-  video.addEventListener('error', () => {
+  function releaseUrl() {
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+    objectUrl = undefined;
+  }
+
+  function useSheets() {
     if (fallback) return;
+    releaseUrl();
+    if (frameCallback !== undefined) video.cancelVideoFrameCallback?.(frameCallback);
+    video.pause();
     video.remove();
     fallback = createSheetFilm(canvas, ambient, motion, options);
     fallback.setActive(active);
     fallback.setProgress(latestProgress, { immediate: true });
+    if (!scrubbable) onReady?.();
+  }
+  video.addEventListener('error', useSheets);
+  fetch(new URL('./assets/' + directory + '/' + source, import.meta.url), {
+    signal: download.signal, priority: startActive ? 'high' : 'auto'
+  }).then(response => {
+    if (!response.ok) throw new Error('Scrub video unavailable');
+    return response.blob();
+  }).then(blob => {
+    if (download.signal.aborted || fallback) return;
+    objectUrl = URL.createObjectURL(blob);
+    video.src = objectUrl;
+  }).catch(error => {
+    if (error.name !== 'AbortError') useSheets();
+  });
+  addEventListener('pagehide', event => {
+    if (!event.persisted) download.abort();
+    releaseUrl();
   });
   backdrop.onLayoutChange(() => {
     if (active && !fallback && publishedFrame >= 0 && !video.seeking) {
-      backdrop.draw(video, 0, 0, video.videoWidth, video.videoHeight);
+      backdrop.draw(video, 0, 0, video.videoWidth, video.videoHeight, true);
     }
   });
 
@@ -204,11 +254,7 @@ export function createScrollFilm(canvas, ambient, motion, options) {
     setProgress(progress, { immediate = false } = {}) {
       latestProgress = progress;
       if (fallback) return fallback.setProgress(progress, { immediate });
-      if (active && !video.getAttribute('src')) {
-        video.preload = 'auto';
-        video.src = new URL('./assets/' + directory + '/' + media, import.meta.url).href;
-      }
-      if (opening && (progress > .015 || motion.matches)) {
+      if (opening && ((!scrubbable && scrollY > 0) || progress > .015 || motion.matches)) {
         opening = false;
         video.pause();
       }
@@ -364,7 +410,7 @@ function createSheetFilm(canvas, ambient, motion, {
     const x = tile % 2 * width;
     const y = Math.floor(tile / 2) * height;
     context.drawImage(sheet, x, y, width, height, 0, 0, width, height);
-    backdrop.draw(sheet, x, y, width, height);
+    backdrop.draw(sheet, x, y, width, height, force);
     if (!canvas.classList.contains('ready')) canvas.classList.add('ready');
     canvas.dataset.frame = String(frame);
     canvas.dataset.quality = 'full';
