@@ -1,5 +1,5 @@
 import {createScrollFilm} from './hero-film.js';
-import './navigation.js';
+import {prefetchCatalog} from './navigation.js';
 import {loadLens, loadLighting} from './bundles/entries.js';
 
 history.scrollRestoration = 'manual';
@@ -80,7 +80,7 @@ lightToggle.addEventListener('click', () => {
 });
 
 const dialog=$('#detail-dialog');let opener;
-function openDialog(kind){opener=document.activeElement;const data={anatomy:{title:'Every element.<br>One perspective.',image:'hero',alt:'Original TERO loupe photography',text:'A closer look at the relationship between frame, optics and light. The hero film shows how the parts come together.',list:['Frame and temple design','Twin optical housings','Eyewear-mounted lighting'],note:'Illustrative geometry, not a dimensional or internal engineering model.'},detail:{title:'The finer details.',image:'detail',alt:'TERO optical housing close-up',text:'The original photography reveals the finish and proportions of the TERO optical housing. Explore its form, from the front lens to the meeting of optic and frame.'},kit:{title:'Light. Complete.',image:'light-kit',alt:'TERO lighting kit and accessories',text:'The supplied kit photography shows the lighting system with its accessories and filter. Refer to your supplier to confirm kit contents and frame compatibility.'}}[kind];if(!data)return;const content=`<div class="dialog-grid"><img src="assets/${data.image}.webp" alt="${data.alt}"><div><h2 id="dialog-title">${data.title}</h2><p>${data.text}</p>${data.list?'<ul>'+data.list.map(s=>'<li>'+s+'</li>').join('')+'</ul>':''}${data.note?'<p class="dialog-note">'+data.note+'</p>':''}</div></div>`;$('#dialog-content').innerHTML=content;dialog.showModal();document.body.style.overflow='hidden'}
+function openDialog(kind){opener=document.activeElement;const data={anatomy:{title:'Every element.<br>One perspective.',image:'hero',alt:'Original TERO loupe photography',text:'A closer look at the relationship between frame, optics and light. The hero film shows how the parts come together.',list:['Frame and temple design','Twin optical housings','Eyewear-mounted lighting'],note:'Illustrative geometry, not a dimensional or internal engineering model.'},detail:{title:'The finer details.',image:'detail',alt:'TERO optical housing close-up',text:'The original photography reveals the finish and proportions of the TERO optical housing. Explore its form, from the front lens to the meeting of optic and frame.'},kit:{title:'Light. Complete.',image:'light-kit',alt:'TERO lighting kit and accessories',text:'The supplied kit photography shows the lighting system with its accessories and filter. Refer to your supplier to confirm kit contents and frame compatibility.'}}[kind];if(!data)return;const content=`<div class="dialog-grid"><img src="assets/${data.image}-v1.webp" alt="${data.alt}"><div><h2 id="dialog-title">${data.title}</h2><p>${data.text}</p>${data.list?'<ul>'+data.list.map(s=>'<li>'+s+'</li>').join('')+'</ul>':''}${data.note?'<p class="dialog-note">'+data.note+'</p>':''}</div></div>`;$('#dialog-content').innerHTML=content;dialog.showModal();document.body.style.overflow='hidden'}
 $$('[data-open]').forEach(b=>b.addEventListener('click',()=>openDialog(b.dataset.open)));
 dialog.querySelector('[data-close]').addEventListener('click', () => dialog.close());
 dialog.addEventListener('click', event => {
@@ -159,6 +159,7 @@ const heroFilm = createScrollFilm($('#hero-film'), $('#hero-ambient'), motion, {
   onFrame: updateHeroCopy,
   onReady() {
     prepareDentist();
+    prefetchCatalog();
     measureScroll();
   }
 });
@@ -312,7 +313,7 @@ const lightObserver = new IntersectionObserver(async entries => {
   try {
     const [{ createProductScene }, modelBytes] = await Promise.all([lightModule(), lightModel()]);
     if (leavingPage) return;
-    lightingScene = await createProductScene(lightScene, { reducedMotion: motion.matches, lightingOnly: true, modelBytes });
+    lightingScene = await createProductScene(lightScene, { reducedMotion: motion.matches, modelBytes });
     if (leavingPage) { lightingScene.dispose(); return; }
     lightingScene.setFilter(manualFilter ? Number(filterActive) : filterProgress, { immediate: true });
   } catch (error) {

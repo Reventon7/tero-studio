@@ -21,7 +21,7 @@ const lights = [
   { id: 'none', label: 'No light' },
 ] as const;
 type Light = typeof lights[number]['id'];
-const photo = '/assets/dental-casts-rebuilt.webp';
+const photo = '/assets/dental-casts-rebuilt-v1.webp';
 const detailPhoto = photo;
 const defaultPosition = { x: .46, y: .49 };
 

@@ -3,31 +3,31 @@ import { dirname } from 'node:path';
 
 const loupes = [
   {
-    slug: 'ergo-hd', name: 'Ergo HD', image: 'ergo-clean.webp', powers: [3.5, 4, 5, 6, 8],
+    slug: 'ergo-hd', name: 'Ergo HD', image: 'ergo-clean-v1.webp', powers: [3.5, 4, 5, 6, 8],
     summary: 'Five magnifications in the ergonomic loupe family.',
     description: 'The Ergo HD range spans 3.5× to 8×. Its ergonomic viewing geometry is designed to give a clear view of the working area while supporting a more upright posture.',
     facts: [['System', 'Ergonomic optics'], ['Viewing position', 'Designed for a relaxed working posture']]
   },
   {
-    slug: 'ergo-hd-zm', name: 'Ergo HD ZM', image: 'ergo-zm-clean.webp', powers: [3.5, 5, 8],
+    slug: 'ergo-hd-zm', name: 'Ergo HD ZM', image: 'ergo-zm-clean-v1.webp', powers: [3.5, 5, 8],
     summary: 'Ergonomic optics with adjustable working distance.',
     description: 'Ergo HD ZM lets you adjust the working distance. That adjustment helps you bring the working area into focus as the distance between you and the patient changes.',
     facts: [['System', 'Ergonomic optics'], ['Working distance', 'Adjustable']]
   },
   {
-    slug: 'galilean', name: 'Galilean', image: 'galilean-clean.webp', powers: [2.5, 3, 3.5],
+    slug: 'galilean', name: 'Galilean', image: 'galilean-clean-v1.webp', powers: [2.5, 3, 3.5],
     summary: 'Compact, lightweight optics with a broad field of view.',
     description: 'TERO’s Galilean system combines a compact optical housing with a broad field of view and good depth of field. It is designed to keep more of the working area in view at lower magnifications.',
     facts: [['System', 'Galilean optics'], ['Field and depth of view', 'Broad field of view with good depth of field']]
   },
   {
-    slug: 'galilean-hd', name: 'Galilean HD', image: 'galilean-hd-clean.webp', powers: [2.5, 3, 3.5],
+    slug: 'galilean-hd', name: 'Galilean HD', image: 'galilean-hd-clean-v1.webp', powers: [2.5, 3, 3.5],
     summary: 'Lightweight Galilean optics designed for a sharp, wide view.',
     description: 'Galilean HD retains the lightweight format of the Galilean family and emphasizes image sharpness, a wide field of view and useful depth of field across the available magnifications.',
     facts: [['System', 'Galilean HD optics'], ['Optical design', 'Sharp, wide view in a lightweight housing']]
   },
   {
-    slug: 'prismatic', name: 'Prismatic', image: 'prismatic-clean.webp', powers: [4, 5],
+    slug: 'prismatic', name: 'Prismatic', image: 'prismatic-clean-v1.webp', powers: [4, 5],
     summary: 'Keplerian optics for higher magnification and crisp edges.',
     description: 'The Prismatic system, also called Keplerian, offers higher magnification than the Galilean range. The catalog emphasizes image resolution and edge definition at both 4× and 5×.',
     facts: [['System', 'Keplerian optics'], ['Optical design', 'Higher magnification with clear edge definition']]
@@ -36,7 +36,7 @@ const loupes = [
 
 const lights = [
   {
-    slug: 'wired', name: 'Wired headlight', image: 'light.webp', alt: 'TERO wired headlight with the amber filter raised',
+    slug: 'wired', name: 'Wired headlight', image: 'light-v1.webp', alt: 'TERO wired headlight with the amber filter raised',
     summary: 'A loupe-mounted light with an integrated amber filter.',
     description: 'The wired TERO headlight clips onto the frame and directs a white beam toward the working area. Lower the amber filter over the lamp to switch to warm illumination.',
     facts: [['Connection', 'Wired'], ['Mount', 'Frame-mounted clip'], ['Filter', 'Flip-down amber cover']]
@@ -119,7 +119,7 @@ async function page(route, title, description, content, interactive = false) {
   <meta name="theme-color" content="#10181e">
   <title>${escape(title)} | TERO</title>
   <meta name="description" content="${escape(description)}">
-  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/assets/favicon-v1.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/fonts/fonts.css">
   <link rel="stylesheet" href="/style.css">
   ${interactive ? '<link rel="stylesheet" href="/lens.css">' : ''}
@@ -147,7 +147,7 @@ for (const product of loupes) {
         <h2 id="lens-title">Through the lens.</h2>
         <p class="catalog-demo-note">Try this model’s magnifications on a dental cast. The view is illustrative.</p>
         <div id="lens-interactive" data-loupe-powers="${product.powers.join(',')}">
-          <noscript><img src="/assets/dental-casts-rebuilt.webp" alt="White plaster dental casts"></noscript>
+          <noscript><img src="/assets/dental-casts-rebuilt-v1.webp" alt="White plaster dental casts"></noscript>
         </div>
       </div>
     </section>`, true);
@@ -161,7 +161,7 @@ for (const product of lights) {
     detail(product, { name: 'Lights', url: '/lights' }, 'Ask about this headlight') +
     (product.slug === 'wired' ? `<section class="catalog-shell catalog-story">
       <h2>The wired kit.</h2>
-      <div class="catalog-media">${photo('light-kit.webp', 'TERO wired headlight, amber filter, mounts and power accessories', true)}</div>
+      <div class="catalog-media">${photo('light-kit-v1.webp', 'TERO wired headlight, amber filter, mounts and power accessories', true)}</div>
     </section>` : ''));
 }
 
@@ -178,12 +178,12 @@ await page('/chair', 'The TERO chair', 'A clinical chair with forearm supports a
         ${facts([['Support', 'Padded seat, backrest and forearm rests'], ['Base', 'Five-spoke base with casters']])}
         ${action('Ask about the chair')}
       </div>
-      <div class="catalog-chair-photo">${photo('chair-photo-three-quarter.webp', 'Three-quarter view of the TERO chair')}</div>
+      <div class="catalog-chair-photo">${photo('chair-photo-three-quarter-v1.webp', 'Three-quarter view of the TERO chair')}</div>
     </div>
   </section>
   <section class="catalog-shell catalog-story">
     <h2>The chair in detail.</h2>
-    <div class="catalog-gallery">${chairViews.map(([view, label]) => `<figure>${photo(`chair-photo-${view}.webp`, `${label} of the TERO chair`, true)}<figcaption>${label}</figcaption></figure>`).join('')}</div>
+    <div class="catalog-gallery">${chairViews.map(([view, label]) => `<figure>${photo(`chair-photo-${view}-v1.webp`, `${label} of the TERO chair`, true)}<figcaption>${label}</figcaption></figure>`).join('')}</div>
   </section>`);
 
 await page('/ergonomics', 'Ergonomics', 'How working distance, viewing angle and magnification shape the clinical setup.', `
@@ -191,7 +191,7 @@ await page('/ergonomics', 'Ergonomics', 'How working distance, viewing angle and
     ${breadcrumb('Ergonomics')}
     <div class="catalog-detail">
       <div><h1>Ergonomics.</h1><p class="catalog-lede">A clearer view starts with a setup that suits how you sit and work. Loupes, lighting and seating each play a part.</p></div>
-      <div class="catalog-media">${photo('tero-ergonomics.webp', 'A seated clinician using loupes with forearm support')}</div>
+      <div class="catalog-media">${photo('tero-ergonomics-v1.webp', 'A seated clinician using loupes with forearm support')}</div>
     </div>
   </section>
   <section class="catalog-shell catalog-story">
@@ -214,6 +214,6 @@ await page('/about', 'About us', 'TERO designs optics, lighting and seating arou
         <p class="catalog-lede">TERO brings together loupes, headlights and seating to support a clear view and a comfortable working position.</p>
         ${action('Contact TERO')}
       </div>
-      <div class="catalog-media catalog-about-photo">${photo('tero-about-catalog.webp', 'A hand holding TERO loupes from the product catalog')}</div>
+      <div class="catalog-media catalog-about-photo">${photo('tero-about-catalog-v1.webp', 'A hand holding TERO loupes from the product catalog')}</div>
     </div>
   </section>`);

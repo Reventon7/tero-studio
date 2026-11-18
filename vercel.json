@@ -6,6 +6,24 @@
   "outputDirectory": "dist",
   "headers": [
     {
+      "source": "/assets/:dir*/:file([a-z0-9-]+-v[0-9]+\\.(?:webp|jpg|png|svg))",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+    },
+    {
+      "source": "/:file(app|hero-film|navigation|catalog-page|style|catalog|lens).:ext(js|css)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=300, stale-while-revalidate=60" },
+        { "key": "Vercel-CDN-Cache-Control", "value": "public, max-age=300, stale-while-revalidate=60" }
+      ]
+    },
+    {
+      "source": "/fonts/fonts.css",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=300, stale-while-revalidate=60" },
+        { "key": "Vercel-CDN-Cache-Control", "value": "public, max-age=300, stale-while-revalidate=60" }
+      ]
+    },
+    {
       "source": "/assets/:dir(hero-magnific-hd-48|dentist-final-48)/:file(scrub-[0-9]+-[a-z0-9-]*v[0-9]+\\.mp4)",
       "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
     },

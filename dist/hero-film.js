@@ -13,11 +13,19 @@ function createFilmBackdrop(ambient, ambientMedia = '(max-aspect-ratio: 8/5), (m
   const stripLayout = ambientStrip && matchMedia(ambientStrip.media);
   const stripWidth = 960;
   const stripHeight = 540;
+  const poster = ambientStrip && ambient.parentElement.querySelector('img');
+  const sampleColumns = 12;
+  const sampleRows = 36;
+  const sample = poster && document.createElement('canvas');
+  if (sample) { sample.width = sampleColumns; sample.height = sampleRows; }
+  const sampleContext = sample?.getContext('2d', { alpha: false, willReadFrequently: true });
+  let posterTexture, posterLight, tintedTexture;
   let drawsUntilRefresh = 0;
   function sizeCanvas() {
     ambient.width = stripLayout?.matches ? stripWidth : 64;
     ambient.height = stripLayout?.matches ? stripHeight : 36;
     drawsUntilRefresh = 0;
+    if (ambientStrip) ambient.classList.remove('ready');
   }
   sizeCanvas();
   const ambientContext = ambient.getContext('2d', { alpha: false });
@@ -71,17 +79,90 @@ function createFilmBackdrop(ambient, ambientMedia = '(max-aspect-ratio: 8/5), (m
     ambientContext.drawImage(floorPatch, 0, floorY);
   }
 
+  function sampleLight(image, x, y, width, height) {
+    // Sample only the clean film edge next to the mask. Keep its row-by-row color
+    // while leaving compression artifacts and grain in the video itself.
+    sampleContext.drawImage(image, x + width * .045, y, width * .055, height, 0, 0, sampleColumns, sampleRows);
+    const pixels = sampleContext.getImageData(0, 0, sampleColumns, sampleRows).data;
+    const light = new Float32Array(sampleRows * 3);
+    for (let row = 0; row < sampleRows; row++) {
+      for (let offset = -1; offset <= 1; offset++) {
+        const sourceRow = Math.min(sampleRows - 1, Math.max(0, row + offset));
+        const weight = (2 - Math.abs(offset)) / (sampleColumns * 4);
+        for (let col = 0; col < sampleColumns; col++) {
+          const pixel = (sourceRow * sampleColumns + col) * 4;
+          for (let channel = 0; channel < 3; channel++) light[row * 3 + channel] += pixels[pixel + channel] * weight;
+        }
+      }
+    }
+    return light;
+  }
+
+  function drawPoster() {
+    if (!ambientContext || !stripLayout?.matches || !poster.naturalWidth) return;
+    if (posterTexture) {
+      ambientContext.putImageData(posterTexture, 0, 0);
+    } else {
+      const { naturalWidth: width, naturalHeight: height } = poster;
+      drawAmbient(poster, 0, 0, width, height);
+      if (sampleContext && floorPatch) {
+        posterTexture = ambientContext.getImageData(0, 0, floorPatch.width, stripHeight);
+        tintedTexture = ambientContext.createImageData(posterTexture);
+        posterLight = sampleLight(poster, 0, 0, width, height);
+      }
+    }
+    ambient.classList.add('ready');
+  }
+
+  function drawLitPoster(image, x, y, width, height) {
+    const light = sampleLight(image, x, y, width, height);
+    const original = posterTexture.data;
+    const pixels = tintedTexture.data;
+    const rowLength = posterTexture.width * 4;
+    for (let row = 0; row < stripHeight; row++) {
+      const sampleRow = Math.max(0, (row + .5) * sampleRows / stripHeight - .5);
+      const start = Math.floor(sampleRow) * 3;
+      const end = Math.min(start + 3, light.length - 3);
+      const fraction = sampleRow % 1;
+      const delta = channel => (light[start + channel] - posterLight[start + channel]) * (1 - fraction)
+        + (light[end + channel] - posterLight[end + channel]) * fraction;
+      const red = delta(0), green = delta(1), blue = delta(2);
+      const limit = (row + 1) * rowLength;
+      for (let pixel = row * rowLength; pixel < limit; pixel += 4) {
+        pixels[pixel] = original[pixel] + red;
+        pixels[pixel + 1] = original[pixel + 1] + green;
+        pixels[pixel + 2] = original[pixel + 2] + blue;
+        pixels[pixel + 3] = 255;
+      }
+    }
+    ambientContext.putImageData(tintedTexture, 0, 0);
+  }
+
+  let layoutChanged;
+  if (poster) {
+    if (poster.complete && poster.naturalWidth) drawPoster();
+    else poster.decode().then(() => { drawPoster(); layoutChanged?.(); }, () => {});
+  }
+  ambientLayout.addEventListener('change', () => layoutChanged?.());
+  stripLayout?.addEventListener('change', () => {
+    sizeCanvas();
+    drawPoster();
+    layoutChanged?.();
+  });
   return {
+    drawPoster,
+    isStrip: () => Boolean(stripLayout?.matches),
     draw(image, x, y, width, height, force = false) {
       if (!ambientContext || !ambientLayout.matches) return;
       if (!force && !stripLayout?.matches && drawsUntilRefresh-- > 0) return;
-      drawAmbient(image, x, y, width, height);
+      if (stripLayout?.matches && posterTexture) drawLitPoster(image, x, y, width, height);
+      else if (!stripLayout?.matches || poster.complete) drawAmbient(image, x, y, width, height);
+      else return;
       drawsUntilRefresh = 2;
       if (!ambient.classList.contains('ready')) ambient.classList.add('ready');
     },
     onLayoutChange(callback) {
-      ambientLayout.addEventListener('change', callback);
-      stripLayout?.addEventListener('change', () => { sizeCanvas(); callback(); });
+      layoutChanged = callback;
     }
   };
 }
@@ -106,14 +187,14 @@ export function createScrollFilm(canvas, ambient, motion, options) {
   }
 
   let video = makeVideo('preview');
+  const backdrop = createFilmBackdrop(ambient, ambientMedia, ambientStrip);
   if (!previewSource || !video.canPlayType('video/mp4; codecs="avc1.640028"')) {
-    const sheets = createSheetFilm(canvas, ambient, motion, options);
+    const sheets = createSheetFilm(canvas, motion, options, backdrop);
     sheets.setActive(startActive);
     queueMicrotask(() => onReady?.());
     return sheets;
   }
 
-  const backdrop = createFilmBackdrop(ambient, ambientMedia, ambientStrip);
   const toTime = frame => Math.floor(frame / 2) / VIDEO_RATE + .004;
   const introEnd = openingFrame / FRAME_RATE;
   const lastTime = toTime(frameCount - 1);
@@ -301,7 +382,12 @@ export function createScrollFilm(canvas, ambient, motion, options) {
         const previous = video;
         video = element;
         candidate = undefined;
-        if (previous.classList.contains('ready')) element.classList.add('ready');
+        if (previous.classList.contains('ready')) {
+          if (backdrop.isStrip()) {
+            backdrop.draw(element, 0, 0, element.videoWidth, element.videoHeight, true);
+          }
+          element.classList.add('ready');
+        }
         attach(element);
         releaseVideo(previous);
         schedule();
@@ -319,7 +405,8 @@ export function createScrollFilm(canvas, ambient, motion, options) {
   function useSheets() {
     if (fallback) return;
     removeLoading();
-    fallback = createSheetFilm(canvas, ambient, motion, options);
+    backdrop.drawPoster();
+    fallback = createSheetFilm(canvas, motion, options, backdrop);
     releaseVideo(video);
     if (candidate) releaseVideo(candidate.element);
     candidate = undefined;
@@ -358,6 +445,7 @@ export function createScrollFilm(canvas, ambient, motion, options) {
     reset() {
       introSkipped = false;
       if (fallback) return fallback.reset();
+      backdrop.drawPoster();
       opening = Boolean(openingFrame) && !motion.matches;
       introStarted = false;
       latestProgress = 0;
@@ -405,11 +493,11 @@ export function createScrollFilm(canvas, ambient, motion, options) {
   };
 }
 
-function createSheetFilm(canvas, ambient, motion, {
+function createSheetFilm(canvas, motion, {
   directory, frameCount, openingFrame = 0, widths = [1280, 832],
-  ambientMedia = '(max-aspect-ratio: 8/5), (min-aspect-ratio: 21/9)', ambientStrip, onFrame,
+  onFrame,
   settleTime = 95, retainEndpoints = false
-}) {
+}, backdrop) {
   const lastSheet = sheetAt(frameCount - 1);
   const openingSheet = sheetAt(openingFrame);
   // The pinned dentist sequence needs its first and last frames ready in both directions.
@@ -424,7 +512,6 @@ function createSheetFilm(canvas, ambient, motion, {
   canvas.height = height;
   const context = canvas.getContext('2d', { alpha: false });
   if (!context) return { setProgress() {}, setActive() {}, reset() {} };
-  const backdrop = createFilmBackdrop(ambient, ambientMedia, ambientStrip);
 
   const compressed = new Map();
   const pending = new Map();
@@ -614,6 +701,8 @@ function createSheetFilm(canvas, ambient, motion, {
 
   return {
     reset() {
+      backdrop.drawPoster();
+      if (backdrop.isStrip()) canvas.classList.remove('ready');
       opening = openingFrame > 0 && !motion.matches;
       openingTime = undefined;
       target = openingFrame;

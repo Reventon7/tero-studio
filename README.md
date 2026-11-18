@@ -12,11 +12,11 @@ From this folder run `npm run dev`, then open http://127.0.0.1:4175 . Node.js is
 - Interactive 3D rotation, keyboard arrows/Home, reset, exploded components and ambient-motion pause.
 - Five catalog optical families, magnification selection and comparison.
 - Three frame finishes, a lighting scene and kit, and seating photography.
-- Downloadable selection summary and original PDF catalog.
+- Separate catalog pages with product specifications and photography.
 - Responsive layouts, keyboard-operated dialogs and tabs, reduced-motion support and a photograph fallback for unavailable WebGL.
 - Self-hosted fonts, Three.js and GSAP assets.
 
-The 3D scene now loads the supplied assembled.glb and light.glb from D:/Projects/Tero/public/assets/hero. These replace the earlier procedural model. No dimensional-CAD accuracy is asserted. Actual product images and catalog specifications are presented separately. Saved selections are local text files; no order, inquiry or backend submission occurs. There is no invented price, certification, testimonial or contact address.
+The interactive lighting scene uses the supplied light-v1.glb. The hero product assembly is a scroll-scrubbed film.
 
 The six supplied prompts informed the art direction. sample.mp4 was analyzed solely as a motion reference and is not embedded or distributed as product media. See design/DIRECTION.md.
 
@@ -46,7 +46,7 @@ The upper rim and clear lens now use one continuous Bezier contour, replacing th
 
 Product plates use clean, tightly bounded crops of the catalog photographs without overlay numbering or family labels. Sixteen orchid examples are extracted from catalog spreads 4–8 and mapped to their printed optical-family/magnification pair. A reversible zoom transition accompanies selection; the final view uses the original sample, not a fabricated optical simulation. The extracted samples are about 355 pixels wide, reflecting the catalog resolution.
 
-Seating uses the supplied clinical/tero-chair-fitted.glb, copied unchanged to assets/models/chair.glb. A separate lazy-loaded Three.js scene provides studio lighting, soft contact shadow, scroll rotation, four animated viewpoints, drag/keyboard rotation and a pause control. Offscreen rendering pauses; reduced-motion preferences suppress scroll motion and animated view transitions. The prior chair photograph is no longer displayed in the seating section.
+The chair has a dedicated page at /chair with front, rear, side and three-quarter product photography.
 
 ## The human perspective
 

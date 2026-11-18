@@ -1,5 +1,27 @@
 const menu = document.querySelector('#mobile-menu');
 const menuToggle = document.querySelector('.menu-toggle');
+let prefetchStarted = false;
+
+export function prefetchCatalog() {
+  if (prefetchStarted || navigator.connection?.saveData) return;
+  prefetchStarted = true;
+  const urls = [...document.querySelectorAll('.desktop-nav a')]
+    .map(link => link.getAttribute('href'))
+    .filter(url => url.startsWith('/') && !url.includes('#'));
+  if (HTMLScriptElement.supports?.('speculationrules')) {
+    const rules = document.createElement('script');
+    rules.type = 'speculationrules';
+    rules.textContent = JSON.stringify({ prefetch: [{ source: 'list', urls }] });
+    document.head.append(rules);
+  } else {
+    for (const url of urls) {
+      const link = document.createElement('link');
+      link.rel = 'prefetch';
+      link.href = url;
+      document.head.append(link);
+    }
+  }
+}
 
 menuToggle.addEventListener('click', () => {
   menu.showModal();

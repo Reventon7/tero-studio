@@ -1,4 +1,6 @@
-import './navigation.js';
+import {prefetchCatalog} from './navigation.js';
+
+addEventListener('load', prefetchCatalog, { once: true });
 
 const demo = document.querySelector('[data-loupe-powers]');
 if (demo) {
