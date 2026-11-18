@@ -1,0 +1,67 @@
+.products-nav { position: relative; }
+.products-nav summary { display: flex; align-items: center; gap: 9px; cursor: pointer; list-style: none; }
+.products-nav summary::-webkit-details-marker { display: none; }
+.products-nav summary::after { content: ''; width: 7px; height: 7px; border: solid currentColor; border-width: 0 1px 1px 0; transform: translateY(-2px) rotate(45deg); }
+.products-nav[open] summary::after { transform: translateY(2px) rotate(225deg); }
+.desktop-nav .products-nav summary { min-height: 44px; }
+.desktop-nav .products-links { position: absolute; inset: 100% auto auto -15px; min-width: 160px; padding: 5px; border: 1px solid #ffffff29; border-radius: 8px; background: #121a20; color: #f1f3ee; }
+.desktop-nav .products-links a { min-height: 44px; padding-inline: 12px; border-radius: 4px; }
+.desktop-nav .products-links a::after { display: none; }
+.desktop-nav .products-links a:hover { background: #ffffff13; opacity: 1; }
+.mobile-menu .products-nav summary { min-height: 58px; font-size: 30px; letter-spacing: -1px; border-bottom: 1px solid #ffffff20; }
+.mobile-menu .products-links a { padding-inline-start: 20px; font-size: 19px; letter-spacing: 0; min-height: 44px; }
+
+.catalog-page { background: #f0f1eb; color: #161d20; }
+.catalog-page .site-header { height: 76px; background: #10181e; }
+.catalog-main { padding-top: 76px; }
+.catalog-shell { box-sizing: content-box; width: auto; max-width: 1260px; margin-inline: auto; padding-inline: var(--pad); }
+.catalog-intro { padding-block: clamp(48px, 7vw, 108px) clamp(34px, 4.6vw, 70px); }
+.catalog-trail { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: clamp(24px, 4vw, 52px); color: #4c5a5f; font-size: 12px; font-weight: 600; }
+.catalog-trail a:hover { text-decoration: underline; }
+.catalog-main h1 { max-width: 13ch; color: #192329; font: 400 clamp(54px, 9vw, 132px) / .89 var(--serif); letter-spacing: -.045em; text-wrap: balance; overflow-wrap: anywhere; }
+.catalog-main h1 em { color: #48594c; }
+.catalog-lede { max-width: 54ch; margin-top: 22px; color: #425056; font-size: clamp(16px, 1.6vw, 20px); line-height: 1.6; }
+.catalog-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(14px, 2vw, 26px); padding-bottom: clamp(54px, 8vw, 112px); }
+.catalog-grid--two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.catalog-card { display: flex; min-width: 0; flex-direction: column; border: 1px solid #26332e25; border-radius: 9px; overflow: hidden; background: #fafaf6; }
+.catalog-card .catalog-media { border-radius: 0; }
+.catalog-card-body { display: grid; align-content: start; gap: 10px; flex: 1; padding: clamp(16px, 2.3vw, 28px); }
+.catalog-card-title { display: flex; justify-content: space-between; align-items: start; gap: 10px; font-size: clamp(22px, 2vw, 32px); letter-spacing: -.045em; line-height: 1.12; }
+.catalog-card-title span { margin-top: 2px; color: #52654b; font: 600 15px / 1.4 var(--sans); }
+.catalog-card:hover .catalog-card-title { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; }
+.catalog-card p { color: #45535a; font-size: 14px; line-height: 1.6; }
+.catalog-powers { color: #455747; font-size: 12px; font-weight: 700; }
+.catalog-media { display: grid; place-items: center; aspect-ratio: 1.7; overflow: hidden; border-radius: 9px; background: #dfe3dc; }
+.catalog-media img { width: 100%; height: 100%; object-fit: cover; }
+.catalog-placeholder { display: grid; width: 100%; height: 100%; place-items: center; min-height: 160px; color: #435348; background: radial-gradient(ellipse at 75% 20%, #edf0e8, #d9e1d7 72%); font-size: 13px; font-weight: 700; text-align: center; }
+.catalog-detail { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); align-items: center; gap: clamp(26px, 6vw, 90px); padding-bottom: clamp(44px, 6vw, 85px); }
+.catalog-detail h1 { font-size: clamp(54px, 7.5vw, 105px); }
+.catalog-facts { display: grid; margin: 28px 0 0; }
+.catalog-facts div { display: grid; grid-template-columns: minmax(0, .7fr) minmax(0, 1.3fr); gap: 12px; padding: 13px 0; border-top: 1px solid #26332e32; font-size: 13px; }
+.catalog-facts dt { color: #4b5a60; }
+.catalog-facts dd { margin: 0; font-weight: 650; }
+.catalog-action { display: inline-flex; align-items: center; gap: 12px; min-height: 44px; border: 1px solid #16232b; border-radius: 4px; padding: 8px 15px; margin-top: 26px; font-size: 13px; font-weight: 650; }
+.catalog-action:hover { background: #16232b; color: #f0f1eb; }
+.catalog-story { padding-block: clamp(34px, 6vw, 90px); border-top: 1px solid #26332e25; }
+.catalog-story h2 { font-size: clamp(34px, 5vw, 68px); margin-bottom: 20px; }
+.catalog-story p { max-width: 64ch; color: #425056; font-size: 16px; line-height: 1.7; }
+.catalog-factors { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+.catalog-factors article { border-top: 1px solid #26332e32; padding-top: 18px; }
+.catalog-factors h3 { font-size: 22px; margin-bottom: 10px; letter-spacing: -.03em; }
+.catalog-gallery { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.catalog-gallery figure { margin: 0; }
+.catalog-gallery img, .catalog-chair-photo img { width: 100%; height: auto; border-radius: 8px; }
+.catalog-chair-photo img { max-width: 435px; margin-inline: auto; }
+.catalog-about-photo { aspect-ratio: 1.18; }
+.catalog-about-photo img { object-position: center 30%; }
+.catalog-gallery figcaption { color: #4b5a60; font-size: 13px; margin-top: 8px; }
+.catalog-lens > .catalog-shell { padding-inline: 0; }
+.catalog-lens .catalog-demo-note { max-width: 1160px; margin: -20px auto 28px; text-align: center; color: #b2bab5; }
+.catalog-lens #lens-interactive:empty::before, .catalog-lens #lens-interactive:empty::after { display: block; }
+@media (max-width: 900px) { .catalog-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 650px) {
+  .catalog-grid, .catalog-detail, .catalog-factors { grid-template-columns: minmax(0, 1fr); }
+  .catalog-detail { gap: 26px; }
+  .catalog-gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .catalog-lens .catalog-demo-note { margin-top: -10px; }
+}

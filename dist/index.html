@@ -1,9 +1,21 @@
 <!doctype html>
-<html lang="en" dir="ltr"><head><meta charset="utf-8"><script>history.scrollRestoration = 'manual';</script><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#101316"><title>TERO — A new perspective.</title><meta name="description" content="Explore TERO optical systems, frames, lighting and seating through an interactive 3D product experience."><link rel="icon" href="assets/favicon.svg" type="image/svg+xml"><link rel="preload" href="fonts/font-0-v1.woff2" as="font" type="font/woff2" crossorigin><link rel="preload" href="fonts/font-2-v1.woff2" as="font" type="font/woff2" crossorigin><link rel="preload" href="fonts/font-3-v1.woff2" as="font" type="font/woff2" crossorigin><link rel="preload" href="fonts/font-4-v1.woff2" as="font" type="font/woff2" crossorigin><link rel="stylesheet" href="fonts/fonts.css"><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="lens.css"><script defer src="vendor/gsap.min.js"></script><script defer src="vendor/ScrollTrigger.min.js"></script><script type="module" src="app.js"></script></head>
+<html lang="en" dir="ltr"><head><meta charset="utf-8"><script>history.scrollRestoration = 'manual';</script><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#101316"><title>TERO — A new perspective.</title><meta name="description" content="Explore TERO optical systems, frames, lighting and seating through an interactive 3D product experience."><link rel="icon" href="assets/favicon.svg" type="image/svg+xml"><link rel="preload" href="fonts/font-0-v1.woff2" as="font" type="font/woff2" crossorigin><link rel="preload" href="fonts/font-2-v1.woff2" as="font" type="font/woff2" crossorigin><link rel="preload" href="fonts/font-3-v1.woff2" as="font" type="font/woff2" crossorigin><link rel="preload" href="fonts/font-4-v1.woff2" as="font" type="font/woff2" crossorigin><link rel="stylesheet" href="fonts/fonts.css"><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="lens.css"><script defer src="vendor/gsap.min.js"></script><script defer src="vendor/ScrollTrigger.min.js"></script><link rel="stylesheet" href="/catalog.css"><script type="module" src="app.js"></script></head>
 <body><a href="#through-the-lens" class="skip-link">Skip to the magnification comparison</a>
 <header class="site-header">
-  <a class="brand" href="#top" aria-label="TERO home"><img src="assets/logo.webp" alt="TERO"></a>
-  <nav class="desktop-nav" aria-label="Main navigation"><button type="button" disabled>Products</button><button type="button" disabled>Ergonomics</button><button type="button" disabled>About us</button><a href="#contact">Contact</a></nav>
+  <a class="brand" href="#top" aria-label="TERO home"><img src="/assets/logo.webp" alt="TERO"></a>
+  <nav class="desktop-nav" aria-label="Main navigation">
+    <details class="products-nav" data-hover-products>
+      <summary>Products</summary>
+      <div class="products-links">
+        <a href="/loupes">Loupes</a>
+        <a href="/lights">Lights</a>
+        <a href="/chair">Chairs</a>
+      </div>
+    </details>
+    <a href="/ergonomics">Ergonomics</a>
+    <a href="/about">About us</a>
+    <a href="#contact">Contact</a>
+  </nav>
   <div class="header-actions">
     <button class="menu-toggle" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-menu"><span></span><span></span></button>
   </div>
@@ -82,18 +94,6 @@
 <div id="lighting" class="lighting-track">
 <section class="lighting section-wrap" aria-labelledby="light-title"><div class="light-layout"><div class="light-art"><div id="light-scene" class="light-scene" role="group" aria-label="Interactive TERO headlight and moving amber filter"><img class="scene-fallback" src="assets/light.webp" alt="TERO headlight with amber filter" loading="lazy"><div class="scene-loading"><span></span> Preparing the light</div></div></div><div class="light-copy reveal"><span class="eyebrow">TERO LIGHTING SYSTEM</span><h2 id="light-title">Light.<br><em>Where it matters.</em></h2><p>White light, with a warmer perspective at a touch. Lower the amber cover and watch the beam shift to a soft, warm tone. Explore the amber-filter setting for composite work.</p><button id="light-toggle" class="light-toggle" aria-pressed="false" aria-label="Amber filter"><span class="switch"><i></i></span><span id="filter-action">Lower the amber filter</span></button><button class="text-link" data-open="kit">Discover the kit <span>↗</span></button></div></div></section>
 </div>
-<section class="chair-section section-wrap" id="seating" aria-labelledby="chair-title">
-  <h2 id="chair-title">The TERO chair.</h2>
-  <div id="chair-scene" aria-busy="true">
-    <p class="chair-status" aria-live="polite">Loading the 3D chair…</p>
-  </div>
-  <p id="chair-guide">Drag to rotate. Double-click to zoom.</p>
-  <div id="chair-controls" role="group" aria-label="Chair view" hidden>
-    <button type="button" data-chair-action="out" aria-label="Zoom out">−</button>
-    <button type="button" data-chair-action="in" aria-label="Zoom in">+</button>
-    <button type="button" data-chair-action="reset">Reset view</button>
-  </div>
-</section>
 <section class="questions section-wrap"><div><span class="eyebrow">A FEW FINER DETAILS</span><h2>A clearer<br><em>understanding.</em></h2></div><div class="faq-list"><details><summary>Which optical families can I explore?<span>+</span></summary><p>TERO optical families include ERGO HD, ERGO HD ZM, Galilean, Galilean HD and Prismatic.</p></details><details><summary>How do I choose a magnification?<span>+</span></summary><p>Try the <a href="#through-the-lens">magnification comparison</a> before discussing your fit and working distance with your supplier.</p></details><details><summary>Is the interactive view an exact product model?<span>+</span></summary><p>The 3D scene is an illustrative design study based on TERO photography, not a dimensional engineering model. Refer to the original photographs for product details.</p></details><details><summary>Where can I find the full specifications?<span>+</span></summary><p><a href="#contact">Contact TERO</a> for full specifications and available configurations.</p></details></div></section>
 <section class="closing section-wrap" id="contact" aria-labelledby="contact-title" tabindex="-1">
   <div class="contact-panel">
@@ -112,7 +112,7 @@
             <option value="" disabled selected>Select your specialty</option>
             <option>General dentistry</option><option>Endodontics</option><option>Orthodontics</option>
             <option>Periodontics</option><option>Prosthodontics</option><option>Oral surgery</option>
-            <option>Pediatric dentistry</option><option>Dental hygiene</option><option>Other</option>
+            <option>Pediatric dentistry</option><option>Dental hygiene</option><option>Dealer</option><option>Other</option>
           </select></span>
         </label>
         <fieldset class="contact-interests contact-wide">
@@ -132,12 +132,27 @@
   </div>
 </section></main>
 <footer class="site-footer">
-  <a class="brand footer-brand" href="#top" aria-label="TERO home"><img src="assets/logo.webp" alt="TERO"></a>
+  <a class="brand footer-brand" href="#top" aria-label="TERO home"><img src="/assets/logo.webp" alt="TERO"></a>
   <span class="footer-copyright">© <span id="year">2026</span> TERO</span>
   <span class="footer-instagram" role="img" aria-label="Instagram">
     <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.7" r="1" fill="currentColor" stroke="none"/></svg>
   </span>
 </footer>
-<dialog id="mobile-menu" class="mobile-menu"><div class="dialog-top"><span class="eyebrow">EXPLORE TERO</span><button data-close aria-label="Close menu">×</button></div><nav aria-label="Mobile navigation"><button type="button" disabled>Products</button><button type="button" disabled>Ergonomics</button><button type="button" disabled>About us</button><a href="#contact">Contact</a></nav></dialog>
+<dialog id="mobile-menu" class="mobile-menu">
+  <div class="dialog-top"><span class="eyebrow">EXPLORE TERO</span><button type="button" data-close aria-label="Close menu">×</button></div>
+  <nav aria-label="Mobile navigation">
+    <details class="products-nav">
+      <summary>Products</summary>
+      <div class="products-links">
+        <a href="/loupes">Loupes</a>
+        <a href="/lights">Lights</a>
+        <a href="/chair">Chairs</a>
+      </div>
+    </details>
+    <a href="/ergonomics">Ergonomics</a>
+    <a href="/about">About us</a>
+    <a href="#contact">Contact</a>
+  </nav>
+</dialog>
 <dialog id="detail-dialog" class="detail-dialog" aria-labelledby="dialog-title"><div class="dialog-top"><span class="eyebrow" id="dialog-eyebrow">TERO / A CLOSER LOOK</span><button data-close aria-label="Close details">×</button></div><div id="dialog-content"></div></dialog><noscript><div class="noscript-note">Enable JavaScript to use the magnification comparison and interactive 3D views.</div></noscript></body></html>
 

@@ -3,7 +3,7 @@ import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 const { metafile } = await build({
-  entryPoints: { lighting: 'dist/scene.js', chair: 'dist/chair-scene.js', lens: 'src/lens/lens.tsx' },
+  entryPoints: { lighting: 'dist/scene.js', lens: 'src/lens/lens.tsx' },
   outdir: 'dist/bundles',
   entryNames: '[name]-[hash]',
   chunkNames: 'shared-[hash]',

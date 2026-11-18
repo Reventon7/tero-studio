@@ -30,6 +30,7 @@ http.createServer((request, response) => {
       response.writeHead(403).end();
       return;
     }
+    if (!path.extname(file)) file += '.html';
     const stat = statSync(file);
     if (!stat.isFile()) throw new Error('Not a file');
     size = stat.size;

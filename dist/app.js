@@ -1,8 +1,10 @@
 import {createScrollFilm} from './hero-film.js';
-import {loadChair, loadLens, loadLighting} from './bundles/entries.js';
+import './navigation.js';
+import {loadLens, loadLighting} from './bundles/entries.js';
 
 history.scrollRestoration = 'manual';
 const entryAnchor = location.hash;
+if (entryAnchor === '#seating') location.replace('/chair');
 if (!entryAnchor) scrollTo({ top: 0, left: 0, behavior: 'instant' });
 
 function reuseLoad(load) {
@@ -15,7 +17,6 @@ function reuseLoad(load) {
 
 const lensModule = reuseLoad(loadLens);
 const lightModule = reuseLoad(loadLighting);
-const chairModule = reuseLoad(loadChair);
 function loadModel(filename) {
   return reuseLoad(async () => {
     const response = await fetch(new URL(`./assets/models/${filename}`, import.meta.url), { priority: 'low' });
@@ -24,11 +25,10 @@ function loadModel(filename) {
   });
 }
 const lightModel = loadModel('light-v1.glb');
-const chairModel = loadModel('tero-chair-higgsfield-v1.glb');
 
 function warmBelowFold() {
   const idle = window.requestIdleCallback?.bind(window) ?? (callback => setTimeout(callback, 120));
-  const loads = [lightModule, chairModule, lensModule, lightModel, chairModel];
+  const loads = [lightModule, lensModule, lightModel];
   function next() {
     const load = loads.shift();
     if (!load) return;
@@ -79,12 +79,19 @@ lightToggle.addEventListener('click', () => {
   lightingScene?.setFilter(Number(filterActive));
 });
 
-const dialog=$('#detail-dialog'),menu=$('#mobile-menu');let opener;
-function openDialog(kind){opener=document.activeElement;const data={anatomy:{title:'Every element.<br>One perspective.',image:'hero',alt:'Original TERO loupe photography',text:'A closer look at the relationship between frame, optics and light. The hero film shows how the parts come together.',list:['Frame and temple design','Twin optical housings','Eyewear-mounted lighting'],note:'Illustrative geometry, not a dimensional or internal engineering model.'},detail:{title:'The finer details.',image:'detail',alt:'TERO optical housing close-up',text:'The original photography reveals the finish and proportions of the TERO optical housing. Explore its form, from the front lens to the meeting of optic and frame.'},kit:{title:'Light. Complete.',image:'light-kit',alt:'TERO lighting kit and accessories',text:'The supplied kit photography shows the lighting system with its accessories and filter. Refer to your supplier to confirm kit contents and frame compatibility.'},chair:{title:'A place for focus.',image:'chair',alt:'TERO chair with black saddle-style seat',text:'Explore the TERO seating collection in the original product photograph. A saddle-style seat, support and wheeled base complete the composition.'}}[kind];if(!data)return;const content=`<div class="dialog-grid"><img src="assets/${data.image}.webp" alt="${data.alt}"><div><h2 id="dialog-title">${data.title}</h2><p>${data.text}</p>${data.list?'<ul>'+data.list.map(s=>'<li>'+s+'</li>').join('')+'</ul>':''}${data.note?'<p class="dialog-note">'+data.note+'</p>':''}</div></div>`;$('#dialog-content').innerHTML=content;dialog.showModal();document.body.style.overflow='hidden'}
+const dialog=$('#detail-dialog');let opener;
+function openDialog(kind){opener=document.activeElement;const data={anatomy:{title:'Every element.<br>One perspective.',image:'hero',alt:'Original TERO loupe photography',text:'A closer look at the relationship between frame, optics and light. The hero film shows how the parts come together.',list:['Frame and temple design','Twin optical housings','Eyewear-mounted lighting'],note:'Illustrative geometry, not a dimensional or internal engineering model.'},detail:{title:'The finer details.',image:'detail',alt:'TERO optical housing close-up',text:'The original photography reveals the finish and proportions of the TERO optical housing. Explore its form, from the front lens to the meeting of optic and frame.'},kit:{title:'Light. Complete.',image:'light-kit',alt:'TERO lighting kit and accessories',text:'The supplied kit photography shows the lighting system with its accessories and filter. Refer to your supplier to confirm kit contents and frame compatibility.'}}[kind];if(!data)return;const content=`<div class="dialog-grid"><img src="assets/${data.image}.webp" alt="${data.alt}"><div><h2 id="dialog-title">${data.title}</h2><p>${data.text}</p>${data.list?'<ul>'+data.list.map(s=>'<li>'+s+'</li>').join('')+'</ul>':''}${data.note?'<p class="dialog-note">'+data.note+'</p>':''}</div></div>`;$('#dialog-content').innerHTML=content;dialog.showModal();document.body.style.overflow='hidden'}
 $$('[data-open]').forEach(b=>b.addEventListener('click',()=>openDialog(b.dataset.open)));
-$$('[data-close]').forEach(b=>b.addEventListener('click',()=>b.closest('dialog').close()));
-for(const d of [dialog,menu]){d.addEventListener('click',e=>{if(e.target!==d)return;const r=d.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)d.close()});d.addEventListener('close',()=>{document.body.style.overflow='';$('.menu-toggle').setAttribute('aria-expanded','false');opener?.focus()})}
-$('.menu-toggle').addEventListener('click',()=>{opener=document.activeElement;menu.showModal();$('.menu-toggle').setAttribute('aria-expanded','true');document.body.style.overflow='hidden'});$$('#mobile-menu nav a').forEach(a=>a.addEventListener('click',()=>menu.close()));
+dialog.querySelector('[data-close]').addEventListener('click', () => dialog.close());
+dialog.addEventListener('click', event => {
+  if (event.target !== dialog) return;
+  const { left, top, right, bottom } = dialog.getBoundingClientRect();
+  if (event.clientX < left || event.clientX > right || event.clientY < top || event.clientY > bottom) dialog.close();
+});
+dialog.addEventListener('close', () => {
+  document.body.style.overflow = '';
+  opener?.focus({ preventScroll: true });
+});
 
 const experience = $('.film-experience');
 const story = $('#experience');
@@ -293,10 +300,11 @@ async function initMotion(){await document.fonts.ready;if(!window.gsap||!window.
  const statement=$('#manifesto-text'),words=statement.textContent.trim().split(/\s+/);statement.setAttribute('aria-label',words.join(' '));statement.innerHTML=words.map(w=>`<span aria-hidden="true">${w}</span>`).join(' ');const spans=[...statement.children];ScrollTrigger.create({trigger:statement,start:'top 85%',end:'bottom 40%',onUpdate:self=>spans.forEach((s,i)=>s.classList.toggle('lit',motion.matches||i/spans.length<self.progress+.08))});if(motion.matches)spans.forEach(s=>s.classList.add('lit'));ScrollTrigger.refresh();window.addEventListener('pagehide',event=>{if(!event.persisted)mm.revert()})}
 initMotion().then(() => {
   // ScrollTrigger's initial refresh can interrupt the browser's smooth fragment scroll.
-  if ([lensAnchor, '#seating', '#contact', '#human-perspective', '#philosophy'].includes(entryAnchor) && location.hash === entryAnchor) {
+  if ([lensAnchor, '#contact', '#human-perspective', '#philosophy'].includes(entryAnchor) && location.hash === entryAnchor) {
     document.querySelector(entryAnchor).scrollIntoView({ behavior: 'instant' });
   }
 });
+let leavingPage = false;
 const lightObserver = new IntersectionObserver(async entries => {
   if (!entries.some(entry => entry.isIntersecting)) return;
   lightObserver.disconnect();
@@ -327,6 +335,7 @@ motion.addEventListener('change', () => {
 });
 addEventListener('pagehide', event => {
   if (event.persisted) return;
+  leavingPage = true;
   scrollSizer.disconnect();
   lightObserver.disconnect();
   lightingScene?.dispose();
@@ -334,33 +343,6 @@ addEventListener('pagehide', event => {
 });
 $('#year').textContent=new Date().getFullYear();
 
-
-const chairContainer = $('#chair-scene');
-let chairScene;
-let leavingPage = false;
-const chairObserver = new IntersectionObserver(async entries => {
-  if (!entries.some(entry => entry.isIntersecting)) return;
-  chairObserver.disconnect();
-  try {
-    const [{ createChairScene }, modelBytes] = await Promise.all([chairModule(), chairModel()]);
-    if (leavingPage) return;
-    chairScene = await createChairScene(chairContainer, modelBytes);
-    if (leavingPage) chairScene.dispose();
-  } catch (error) {
-    console.error('TERO chair unavailable:', error);
-    chairContainer.querySelector('.chair-status').textContent = 'The 3D chair could not load.';
-    $('#chair-guide').hidden = true;
-  } finally {
-    chairContainer.removeAttribute('aria-busy');
-  }
-}, { rootMargin: '420px' });
-chairObserver.observe(chairContainer);
-addEventListener('pagehide', event => {
-  if (event.persisted) return;
-  leavingPage = true;
-  chairObserver.disconnect();
-  chairScene?.dispose();
-});
 
 const contactSection = $('#contact');
 let stopContactScroll;

@@ -21,7 +21,7 @@ const lights = [
   { id: 'none', label: 'No light' },
 ] as const;
 type Light = typeof lights[number]['id'];
-const photo = 'assets/dental-casts-rebuilt.webp';
+const photo = '/assets/dental-casts-rebuilt.webp';
 const detailPhoto = photo;
 const defaultPosition = { x: .46, y: .49 };
 
@@ -185,11 +185,13 @@ function LoupeViewer({ power, light }: { power: Magnification; light: Light }) {
   </div>;
 }
 
-function MagnificationSelector({ selected, select }: { selected: Magnification; select: (value: Magnification) => void }) {
+function MagnificationSelector({ options, selected, select }: {
+  options: readonly Magnification[]; selected: Magnification; select: (value: Magnification) => void;
+}) {
   return <fieldset className="lens-fieldset">
     <legend className="lens-label">Magnification</legend>
     <div className="lens-option-group flex flex-wrap gap-2">
-      {magnifications.map(option => <label className="lens-pill" key={option.scale}>
+      {options.map(option => <label className="lens-pill" key={option.scale}>
         <input type="radio" name="lens-magnification" checked={selected.scale === option.scale}
           aria-label={option.scale === 1 ? '1.0× naked eye' : option.label} onChange={() => select(option)} />
         <span>{option.label}</span>
@@ -210,18 +212,21 @@ function HeadlightSelector({ selected, select }: { selected: Light; select: (val
   </fieldset>;
 }
 
-function MagnificationSection() {
-  const [power, setPower] = useState<Magnification>(magnifications[3]);
+function MagnificationSection({ options, initial }: { options: readonly Magnification[]; initial: Magnification }) {
+  const [power, setPower] = useState<Magnification>(initial);
   const [light, setLight] = useState<Light>('none');
   return <div className="lens-layout grid">
     <LoupeViewer power={power} light={light} />
     <div className="lens-controls grid">
-      <MagnificationSelector selected={power} select={setPower} />
+      <MagnificationSelector options={options} selected={power} select={setPower} />
       <HeadlightSelector selected={light} select={setLight} />
     </div>
   </div>;
 }
 
-export function mountLens(element: HTMLElement) {
-  createRoot(element).render(<MagnificationSection />);
+export function mountLens(element: HTMLElement, powers?: readonly number[]) {
+  const modelOptions = powers ? magnifications.filter(option => powers.includes(option.scale)) : [];
+  const options = modelOptions.length ? modelOptions : magnifications;
+  const initial = modelOptions[0] ?? magnifications[3];
+  createRoot(element).render(<MagnificationSection options={options} initial={initial} />);
 }
