@@ -87,18 +87,32 @@ function createFilmBackdrop(ambient, ambientMedia = '(max-aspect-ratio: 8/5), (m
 }
 
 export function createScrollFilm(canvas, ambient, motion, options) {
-  const video = document.createElement('video');
-  const { directory, media, frameCount, openingFrame = 0, onFrame, onReady, ambientMedia, ambientStrip,
-    settleTime = 95, startActive = true } = options;
+  const { directory, media, preview, frameCount, openingFrame = 0, onFrame, onReady,
+    ambientMedia, ambientStrip, settleTime = 95, startActive = true } = options;
   const mobile = matchMedia('(max-width: 760px)').matches;
   const highDpi = innerWidth * devicePixelRatio >= 2200;
-  const source = mobile ? media?.mobile : (highDpi && media?.large) || media?.desktop;
-  if (!source || !video.canPlayType('video/mp4; codecs="avc1.640028"')) {
+  const fullSource = mobile ? media?.mobile : (highDpi && media?.large) || media?.desktop;
+  const previewSource = (mobile && preview?.mobile) || preview?.desktop;
+
+  function makeVideo(tier) {
+    const element = document.createElement('video');
+    element.className = 'film-frames';
+    element.dataset.filmTier = tier;
+    element.setAttribute('aria-hidden', 'true');
+    element.muted = element.defaultMuted = element.playsInline = true;
+    element.disablePictureInPicture = true;
+    element.preload = 'auto';
+    return element;
+  }
+
+  let video = makeVideo('preview');
+  if (!previewSource || !video.canPlayType('video/mp4; codecs="avc1.640028"')) {
     const sheets = createSheetFilm(canvas, ambient, motion, options);
     sheets.setActive(startActive);
     queueMicrotask(() => onReady?.());
     return sheets;
   }
+
   const backdrop = createFilmBackdrop(ambient, ambientMedia, ambientStrip);
   const toTime = frame => Math.floor(frame / 2) / VIDEO_RATE + .004;
   const introEnd = openingFrame / FRAME_RATE;
@@ -106,31 +120,80 @@ export function createScrollFilm(canvas, ambient, motion, options) {
   let active = startActive;
   let opening = Boolean(openingFrame) && !motion.matches;
   let introStarted = false;
+  let previewReady = false;
+  let endPending = false;
   let queued = 0;
   let previousTick = 0;
   let position = introEnd;
   let target = introEnd;
   let latestProgress = 0;
+  let introSkipped = false;
   let publishedFrame = -1;
   let fallback;
-  let scrubbable = false;
-  let objectUrl;
-  let frameCallback;
+  let candidate;
+  let fullLoad;
   const download = new AbortController();
+  const objectUrls = new Map();
+  const progressBar = document.createElement('progress');
+  progressBar.className = 'film-download';
+  progressBar.setAttribute('aria-label', 'Loading film');
+  progressBar.max = 1;
+  progressBar.hidden = true;
+  canvas.after(video, progressBar);
+  const showLoading = setTimeout(() => {
+    if (!previewReady && !fallback) progressBar.hidden = false;
+  }, Math.max(0, 1500 - performance.now()));
 
-  video.className = 'film-frames';
-  video.setAttribute('aria-hidden', 'true');
-  video.muted = true;
-  video.defaultMuted = true;
-  video.playsInline = true;
-  video.disablePictureInPicture = true;
-  video.preload = 'auto';
-  canvas.after(video);
+  function removeLoading() {
+    clearTimeout(showLoading);
+    progressBar.remove();
+  }
+
+  async function fetchVideo(source, priority, onBytes) {
+    const url = new URL('./assets/' + directory + '/' + source, import.meta.url);
+    const response = await fetch(url, { priority, signal: download.signal });
+    if (!response.ok) throw new Error('Scrub video unavailable');
+    if (!onBytes || !response.body) return response.blob();
+
+    const length = Number(response.headers.get('content-length'));
+    const reader = response.body.getReader();
+    const chunks = [];
+    let received = 0;
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        received += value.byteLength;
+        if (length) onBytes(Math.min(1, received / length));
+      }
+      return new Blob(chunks, { type: 'video/mp4' });
+    } finally {
+      reader.releaseLock();
+    }
+  }
+
+  function assignBlob(element, blob) {
+    const url = URL.createObjectURL(blob);
+    objectUrls.set(element, url);
+    element.src = url;
+  }
+
+  function releaseVideo(element) {
+    element.pause();
+    element.removeAttribute('src');
+    element.load();
+    element.remove();
+    const url = objectUrls.get(element);
+    if (url) URL.revokeObjectURL(url);
+    objectUrls.delete(element);
+  }
 
   function publish(mediaTime) {
-    if (!active || !scrubbable || video.readyState < 2) return;
+    if ((!active && !endPending) || !previewReady || video.readyState < 2) return;
     const sourceFrame = Math.floor(mediaTime * VIDEO_RATE + .02);
     const frame = sourceFrame === Math.floor((frameCount - 1) / 2) ? frameCount - 1 : sourceFrame * 2;
+    if (frame === frameCount - 1) endPending = false;
     if (frame === publishedFrame) return;
     publishedFrame = frame;
     backdrop.draw(video, 0, 0, video.videoWidth, video.videoHeight);
@@ -141,16 +204,16 @@ export function createScrollFilm(canvas, ambient, motion, options) {
   }
 
   function schedule() {
-    if (active && !fallback && !queued) queued = requestAnimationFrame(update);
+    if ((active || endPending) && !fallback && !queued) queued = requestAnimationFrame(update);
   }
 
   function update(now) {
     queued = 0;
-    if (!active || fallback || !scrubbable) return;
+    if ((!active && !endPending) || fallback || !previewReady || video.seeking) return;
     if (opening) {
       if (!introStarted && video.readyState >= 2) {
         introStarted = true;
-        video.play().catch(() => { opening = false; schedule(); });
+        video.play().catch(() => { opening = false; schedule(); alignCandidate(); });
       }
       if (!video.paused && video.currentTime < introEnd) {
         if (publishedFrame < 0 || !video.requestVideoFrameCallback) publish(video.currentTime);
@@ -163,7 +226,6 @@ export function createScrollFilm(canvas, ambient, motion, options) {
       } else return;
     }
 
-    if (video.seeking) return;
     const elapsed = previousTick ? Math.min(80, now - previousTick) : 17;
     previousTick = now;
     const delta = target - position;
@@ -174,65 +236,117 @@ export function createScrollFilm(canvas, ambient, motion, options) {
     else if (video.readyState >= 2) publish(video.currentTime);
     if (position !== target && !video.seeking) schedule();
     if (position === target) previousTick = 0;
+    alignCandidate();
   }
 
-  function watchFrame() {
-    if (frameCallback !== undefined || !video.requestVideoFrameCallback) return;
-    frameCallback = video.requestVideoFrameCallback((_, { mediaTime }) => {
-      frameCallback = undefined;
-      if (fallback) return;
-      if (!video.seeking && (opening ? introStarted : Math.abs(mediaTime - video.currentTime) < 1 / VIDEO_RATE)) {
+  function watchFrame(element) {
+    element.requestVideoFrameCallback?.((_, { mediaTime }) => {
+      if (element !== video || fallback) return;
+      if (!element.seeking && (opening ? introStarted : Math.abs(mediaTime - element.currentTime) < 1 / VIDEO_RATE)) {
         publish(mediaTime);
       }
-      watchFrame();
+      watchFrame(element);
     });
   }
-  watchFrame();
-  video.addEventListener('loadeddata', () => {
-    if (scrubbable || fallback) return;
-    if (opening && scrollY > 0) opening = false;
-    scrubbable = true;
-    onReady?.();
-    schedule();
-  });
-  video.addEventListener('seeked', () => {
-    if (!opening) publish(video.currentTime);
-    schedule();
-  });
-  video.addEventListener('playing', schedule);
-  function releaseUrl() {
-    if (objectUrl) URL.revokeObjectURL(objectUrl);
-    objectUrl = undefined;
+
+  function attach(element) {
+    watchFrame(element);
+    element.addEventListener('seeked', () => {
+      if (element !== video || fallback) return;
+      if (!opening) publish(element.currentTime);
+      schedule();
+      alignCandidate();
+    });
+    element.addEventListener('playing', () => { if (element === video) schedule(); });
+    element.addEventListener('error', () => { if (element === video) useSheets(); });
+  }
+
+  function alignCandidate() {
+    if (!candidate || !candidate.ready || candidate.aligning || opening || video.seeking) return;
+    candidate.aligning = true;
+    candidate.element.currentTime = Math.max(.004, video.currentTime);
+  }
+
+  async function fetchWithRetry(source, priority, onBytes) {
+    try {
+      return await fetchVideo(source, priority, onBytes);
+    } catch (error) {
+      if (!(error instanceof TypeError) || download.signal.aborted) throw error;
+      onBytes?.(0);
+      return fetchVideo(source, priority, onBytes);
+    }
+  }
+
+  function upgrade() {
+    if (!fullSource || fallback || download.signal.aborted) return;
+    fullLoad ??= fetchWithRetry(fullSource, 'low').then(blob => {
+      if (fallback || download.signal.aborted) return;
+      const element = makeVideo('full');
+      candidate = { element, ready: false, aligning: false };
+      video.after(element);
+      element.addEventListener('loadeddata', () => {
+        if (candidate?.element !== element) return;
+        candidate.ready = true;
+        alignCandidate();
+      }, { once: true });
+      element.addEventListener('seeked', () => {
+        if (candidate?.element !== element) return;
+        candidate.aligning = false;
+        if (opening || video.seeking) return;
+        if (Math.abs(element.currentTime - video.currentTime) > .012) {
+          alignCandidate();
+          return;
+        }
+
+        const previous = video;
+        video = element;
+        candidate = undefined;
+        if (previous.classList.contains('ready')) element.classList.add('ready');
+        attach(element);
+        releaseVideo(previous);
+        schedule();
+      });
+      element.addEventListener('error', () => {
+        if (candidate?.element !== element) return;
+        candidate = undefined;
+        releaseVideo(element);
+      });
+      assignBlob(element, blob);
+    }).catch(() => { /* The preview remains usable if the high-quality transfer fails. */ });
+    return fullLoad;
   }
 
   function useSheets() {
     if (fallback) return;
-    releaseUrl();
-    if (frameCallback !== undefined) video.cancelVideoFrameCallback?.(frameCallback);
-    video.pause();
-    video.remove();
+    removeLoading();
     fallback = createSheetFilm(canvas, ambient, motion, options);
+    releaseVideo(video);
+    if (candidate) releaseVideo(candidate.element);
+    candidate = undefined;
     fallback.setActive(active);
-    fallback.setProgress(latestProgress, { immediate: true });
-    if (!scrubbable) onReady?.();
+    fallback.setProgress(latestProgress, { immediate: true, skipIntro: introSkipped || introStarted });
+    if (!previewReady) onReady?.();
   }
-  video.addEventListener('error', useSheets);
-  fetch(new URL('./assets/' + directory + '/' + source, import.meta.url), {
-    signal: download.signal, priority: startActive ? 'high' : 'auto'
-  }).then(response => {
-    if (!response.ok) throw new Error('Scrub video unavailable');
-    return response.blob();
-  }).then(blob => {
-    if (download.signal.aborted || fallback) return;
-    objectUrl = URL.createObjectURL(blob);
-    video.src = objectUrl;
-  }).catch(error => {
-    if (error.name !== 'AbortError') useSheets();
+
+  attach(video);
+  video.addEventListener('loadeddata', () => {
+    if (previewReady || fallback) return;
+    previewReady = true;
+    removeLoading();
+    onReady?.();
+    schedule();
   });
+  fetchWithRetry(previewSource, startActive ? 'high' : 'auto', fraction => { progressBar.value = fraction; })
+    .then(blob => { if (!download.signal.aborted && !fallback) assignBlob(video, blob); })
+    .catch(error => { if (error.name !== 'AbortError') useSheets(); });
+
   addEventListener('pagehide', event => {
-    if (!event.persisted) download.abort();
-    releaseUrl();
+    if (event.persisted) return;
+    download.abort();
+    for (const url of objectUrls.values()) URL.revokeObjectURL(url);
+    objectUrls.clear();
   });
+
   backdrop.onLayoutChange(() => {
     if (active && !fallback && publishedFrame >= 0 && !video.seeking) {
       backdrop.draw(video, 0, 0, video.videoWidth, video.videoHeight, true);
@@ -240,26 +354,49 @@ export function createScrollFilm(canvas, ambient, motion, options) {
   });
 
   return {
+    upgrade,
+    reset() {
+      introSkipped = false;
+      if (fallback) return fallback.reset();
+      opening = Boolean(openingFrame) && !motion.matches;
+      introStarted = false;
+      latestProgress = 0;
+      endPending = false;
+      publishedFrame = -1;
+      previousTick = 0;
+      onFrame?.(0);
+      video.classList.remove('ready');
+      delete canvas.dataset.frame;
+      target = position = toTime(openingFrame);
+      video.pause();
+      if (previewReady) video.currentTime = opening ? 0 : target;
+      schedule();
+    },
     setActive(value) {
       if (active === value) return;
       active = value;
       if (fallback) return fallback.setActive(value);
-      if (active) schedule();
+      if (active || endPending) schedule();
       else {
         video.pause();
         cancelAnimationFrame(queued);
         queued = previousTick = 0;
       }
     },
-    setProgress(progress, { immediate = false } = {}) {
+    setProgress(progress, { immediate = false, skipIntro = progress > .015 } = {}) {
       latestProgress = progress;
-      if (fallback) return fallback.setProgress(progress, { immediate });
-      if (opening && ((!scrubbable && scrollY > 0) || progress > .015 || motion.matches)) {
+      introSkipped ||= skipIntro;
+      if (fallback) return fallback.setProgress(progress, { immediate, skipIntro: introSkipped });
+      if (opening && (introSkipped || motion.matches)) {
         opening = false;
         video.pause();
       }
+      endPending = Boolean(openingFrame && immediate && progress === 1 && publishedFrame !== frameCount - 1);
       const time = toTime(openingFrame + progress * (frameCount - 1 - openingFrame));
-      if (time === target && (!immediate || position === time) && (introStarted || !opening)) return;
+      if (time === target && (!immediate || position === time) && (introStarted || !opening)) {
+        if (endPending) schedule();
+        return;
+      }
       target = time;
       if (immediate || motion.matches) position = time;
       else if (Math.abs(target - position) > .72) position = target - Math.sign(target - position) * .72;
@@ -286,7 +423,7 @@ function createSheetFilm(canvas, ambient, motion, {
   canvas.width = width;
   canvas.height = height;
   const context = canvas.getContext('2d', { alpha: false });
-  if (!context) return { setProgress() {}, setActive() {} };
+  if (!context) return { setProgress() {}, setActive() {}, reset() {} };
   const backdrop = createFilmBackdrop(ambient, ambientMedia, ambientStrip);
 
   const compressed = new Map();
@@ -476,6 +613,16 @@ function createSheetFilm(canvas, ambient, motion, {
   backdrop.onLayoutChange(redrawAmbient);
 
   return {
+    reset() {
+      opening = openingFrame > 0 && !motion.matches;
+      openingTime = undefined;
+      target = openingFrame;
+      position = opening ? 0 : openingFrame;
+      velocity = lastTime = 0;
+      drawn = -1;
+      onFrame?.(0);
+      schedule();
+    },
     setActive(value) {
       if (active === value) return;
       active = value;
@@ -496,8 +643,8 @@ function createSheetFilm(canvas, ambient, motion, {
       compressed.clear();
       drawnSource = undefined;
     },
-    setProgress(progress, { immediate = false } = {}) {
-      if (opening && (progress > .015 || motion.matches)) {
+    setProgress(progress, { immediate = false, skipIntro = progress > .015 } = {}) {
+      if (opening && (skipIntro || motion.matches)) {
         opening = false;
         position = Math.max(position, openingFrame);
       }
@@ -511,8 +658,9 @@ function createSheetFilm(canvas, ambient, motion, {
       }
       if (velocity * (next - position) < 0) velocity = 0;
       if (next !== target) direction = Math.sign(next - target);
-      else if (!snap && drawn >= 0 && !opening && !motion.matches) return;
+      else if (!snap && drawn >= 0 && !opening && !motion.matches && active) return;
       target = next;
+      if (!active && immediate && endpointSheets.includes(sheetAt(next))) draw(Math.round(next));
       schedule();
     }
   };

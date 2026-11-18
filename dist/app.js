@@ -1,6 +1,10 @@
 import {createScrollFilm} from './hero-film.js';
 import {loadChair, loadLens, loadLighting} from './bundles/entries.js';
 
+history.scrollRestoration = 'manual';
+const entryAnchor = location.hash;
+if (!entryAnchor) scrollTo({ top: 0, left: 0, behavior: 'instant' });
+
 function reuseLoad(load) {
   let pending;
   return () => pending ??= load().catch(error => {
@@ -38,7 +42,6 @@ function warmBelowFold() {
 
 const lensMount = document.querySelector('#lens-interactive');
 const lensAnchor = '#through-the-lens';
-const entryAnchor = location.hash;
 const lensObserver = new IntersectionObserver(async entries => {
   if (!entries.some(entry => entry.isIntersecting)) return;
   lensObserver.disconnect();
@@ -135,9 +138,10 @@ function animateChapters(group) {
 const updateHeroCopy = animateChapters(heroPanel.querySelector('.film-chapters'));
 
 const heroFilm = createScrollFilm($('#hero-film'), $('#hero-ambient'), motion, {
-  media: { large: 'scrub-1440-v3.mp4', desktop: 'scrub-1080-v3.mp4', mobile: 'scrub-720-v3.mp4' },
+  preview: { desktop: 'scrub-540-preview-v1.mp4' },
+  media: { large: 'scrub-1440-v4.mp4', desktop: 'scrub-1080-v4.mp4', mobile: 'scrub-720-v4.mp4' },
   directory: 'hero-magnific-hd-48', frameCount: 576, openingFrame: 64,
-  widths: [1920, 832],
+  widths: [1920, 832], retainEndpoints: true,
   ambientMedia: '(max-width: 760px), (max-aspect-ratio: 3/2), (min-aspect-ratio: 8/5)',
   ambientStrip: {
     media: '(min-width: 761px) and (min-aspect-ratio: 8/5)',
@@ -149,7 +153,6 @@ const heroFilm = createScrollFilm($('#hero-film'), $('#hero-ambient'), motion, {
   onReady() {
     prepareDentist();
     measureScroll();
-    warmBelowFold();
   }
 });
 let dentistFilm;
@@ -160,9 +163,20 @@ const updateDentistCopy = animateChapters(dentistChapters);
 
 function prepareDentist() {
   dentistFilm ??= createScrollFilm($('#dentist-film'), $('#dentist-ambient'), motion, {
-    media: { desktop: 'scrub-720-v3.mp4', mobile: 'scrub-540-v3.mp4' },
+    preview: { desktop: 'scrub-540-preview-v1.mp4' },
+    media: { desktop: 'scrub-720-v4.mp4', mobile: 'scrub-540-v4.mp4' },
     directory: 'dentist-final-48', frameCount: dentistFrameCount, widths: [1152, 768],
-    settleTime: 48, retainEndpoints: true, startActive: false, onFrame: updateDentistCopy
+    settleTime: 48, retainEndpoints: true, startActive: false, onFrame: updateDentistCopy,
+    async onReady() {
+      warmBelowFold();
+      const canDownloadFull = () => {
+        const connection = navigator.connection;
+        return !connection?.saveData && !['slow-2g', '2g', '3g'].includes(connection?.effectiveType);
+      };
+      if (!canDownloadFull()) return;
+      await heroFilm.upgrade?.();
+      if (canDownloadFull()) await dentistFilm.upgrade?.();
+    }
   });
 }
 
@@ -188,18 +202,23 @@ function scrubLightFilter(trackTop, travel) {
 }
 
 let scrollPending = false;
+// ScrollTrigger can move the viewport temporarily while measuring the page.
+let hasScrolled = Boolean(entryAnchor && entryAnchor !== '#top');
 let previousBlend;
 let geometry;
 function scrollState() {
   scrollPending = false;
   const y = scrollY;
   const { height, heroStart, dentistStart, stageRelease, filmBottom, lightOffset, lightTravel, surfaces } = geometry;
-  const blendStart = dentistStart - height * (motion.matches ? .52 : 1.18);
+  const reduced = motion.matches;
+  const blendStart = dentistStart - height * (reduced ? .52 : .5);
   const blend = clampProgress((y - blendStart) / Math.max(1, dentistStart - blendStart));
-  const progress = clampProgress((y - heroStart) / Math.max(1, blendStart - heroStart - height * .12));
+  const heroEnd = blendStart - (reduced ? height * .12 : 0);
+  const progress = clampProgress((y - heroStart) / Math.max(1, heroEnd - heroStart));
   // Show the final frame while the stage is still pinned, before the next section enters.
+  const clinicalStart = reduced ? dentistStart : (blendStart + dentistStart) / 2;
   const dentistEnd = stageRelease - height * .5;
-  const clinicalProgress = clampProgress((y - dentistStart) / Math.max(1, dentistEnd - dentistStart));
+  const clinicalProgress = clampProgress((y - clinicalStart) / Math.max(1, dentistEnd - clinicalStart));
   const overFilm = y < filmBottom - 76;
   const lightSurface = !overFilm && surfaces.some(({ top, bottom }) => top < y + 76 && bottom > y + 76);
 
@@ -214,15 +233,19 @@ function scrollState() {
 
   const still = progress < .22 ? 0 : progress < .46 ? .34 : .88;
   heroFilm.setActive(blend < 1);
-  heroFilm.setProgress(motion.matches ? still : progress);
+  heroFilm.setProgress(reduced ? still : progress, {
+    immediate: !reduced && y >= heroEnd,
+    skipIntro: hasScrolled
+  });
   const dentistNear = y >= blendStart - height * 1.55 && y < stageRelease + height;
   dentistFilm?.setActive(dentistNear);
   const clinicalStill = clinicalProgress < ergonomicFrame / (dentistFrameCount - 1) ? 0 : 1;
   dentistFilm?.setProgress(motion.matches ? clinicalStill : clinicalProgress, {
-    immediate: y <= dentistStart || y >= stageRelease
+    immediate: y <= clinicalStart || y >= stageRelease
   });
 }
 addEventListener('scroll', () => {
+  if (scrollY > 2) hasScrolled = true;
   if (scrollPending) return;
   scrollPending = true;
   requestAnimationFrame(scrollState);
@@ -256,11 +279,21 @@ const scrollSizer = new ResizeObserver(measureScroll);
 [$('main'), stage, lightingSection, lightingTrack].forEach(element => scrollSizer.observe(element));
 measureScroll();
 
-async function initMotion(){await document.fonts.ready;if(!window.gsap||!window.ScrollTrigger)return;gsap.registerPlugin(ScrollTrigger);const mm=gsap.matchMedia();mm.add('(prefers-reduced-motion: no-preference)',()=>{gsap.from('.site-header',{y:-12,autoAlpha:0,duration:.65,ease:'power3.out'});$$('.reveal').forEach(el=>gsap.from(el,{y:35,autoAlpha:0,duration:.9,ease:'power3.out',scrollTrigger:{trigger:el,start:'top 90%',once:true}}));gsap.to('.craft-media',{yPercent:8,ease:'none',scrollTrigger:{trigger:'.craft',start:'top bottom',end:'bottom top',scrub:1}});});
- const statement=$('#manifesto-text'),words=statement.textContent.trim().split(/\s+/);statement.setAttribute('aria-label',words.join(' '));statement.innerHTML=words.map(w=>`<span aria-hidden="true">${w}</span>`).join(' ');const spans=[...statement.children];ScrollTrigger.create({trigger:statement,start:'top 85%',end:'bottom 40%',onUpdate:self=>spans.forEach((s,i)=>s.classList.toggle('lit',motion.matches||i/spans.length<self.progress+.08))});if(motion.matches)spans.forEach(s=>s.classList.add('lit'));ScrollTrigger.refresh();window.addEventListener('pagehide',()=>mm.revert(),{once:true})}
+addEventListener('pageshow', event => {
+  if (!event.persisted || location.hash) return;
+  scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  hasScrolled = false;
+  heroFilm.reset?.();
+  dentistFilm?.reset?.();
+  previousBlend = undefined;
+  measureScroll();
+});
+
+async function initMotion(){await document.fonts.ready;if(!window.gsap||!window.ScrollTrigger)return;gsap.registerPlugin(ScrollTrigger);ScrollTrigger.clearScrollMemory('manual');const mm=gsap.matchMedia();mm.add('(prefers-reduced-motion: no-preference)',()=>{gsap.from('.site-header',{y:-12,autoAlpha:0,duration:.65,ease:'power3.out'});$$('.reveal').forEach(el=>gsap.from(el,{y:35,autoAlpha:0,duration:.9,ease:'power3.out',scrollTrigger:{trigger:el,start:'top 90%',once:true}}));gsap.to('.craft-media',{yPercent:8,ease:'none',scrollTrigger:{trigger:'.craft',start:'top bottom',end:'bottom top',scrub:1}});});
+ const statement=$('#manifesto-text'),words=statement.textContent.trim().split(/\s+/);statement.setAttribute('aria-label',words.join(' '));statement.innerHTML=words.map(w=>`<span aria-hidden="true">${w}</span>`).join(' ');const spans=[...statement.children];ScrollTrigger.create({trigger:statement,start:'top 85%',end:'bottom 40%',onUpdate:self=>spans.forEach((s,i)=>s.classList.toggle('lit',motion.matches||i/spans.length<self.progress+.08))});if(motion.matches)spans.forEach(s=>s.classList.add('lit'));ScrollTrigger.refresh();window.addEventListener('pagehide',event=>{if(!event.persisted)mm.revert()})}
 initMotion().then(() => {
   // ScrollTrigger's initial refresh can interrupt the browser's smooth fragment scroll.
-  if ([lensAnchor, '#seating', '#contact'].includes(entryAnchor) && location.hash === entryAnchor && performance.getEntriesByType('navigation')[0]?.type === 'navigate') {
+  if ([lensAnchor, '#seating', '#contact', '#human-perspective', '#philosophy'].includes(entryAnchor) && location.hash === entryAnchor) {
     document.querySelector(entryAnchor).scrollIntoView({ behavior: 'instant' });
   }
 });
@@ -292,12 +325,13 @@ motion.addEventListener('change', () => {
   if (lightingScene) lightingScene.state.paused = motion.matches;
   measureScroll();
 });
-addEventListener('pagehide', () => {
+addEventListener('pagehide', event => {
+  if (event.persisted) return;
   scrollSizer.disconnect();
   lightObserver.disconnect();
   lightingScene?.dispose();
   window.ScrollTrigger?.getAll().forEach(trigger => trigger.kill());
-}, { once: true });
+});
 $('#year').textContent=new Date().getFullYear();
 
 
@@ -321,11 +355,12 @@ const chairObserver = new IntersectionObserver(async entries => {
   }
 }, { rootMargin: '420px' });
 chairObserver.observe(chairContainer);
-addEventListener('pagehide', () => {
+addEventListener('pagehide', event => {
+  if (event.persisted) return;
   leavingPage = true;
   chairObserver.disconnect();
   chairScene?.dispose();
-}, { once: true });
+});
 
 const contactSection = $('#contact');
 let stopContactScroll;
