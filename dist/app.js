@@ -232,6 +232,7 @@ function scrollState() {
 
   header.classList.toggle('scrolled', y > 60);
   header.classList.toggle('over-film', overFilm);
+  header.classList.toggle('over-dentist', overFilm && blend >= 1);
   header.classList.toggle('light-header', lightSurface);
   if (previousBlend !== blend) {
     previousBlend = blend;

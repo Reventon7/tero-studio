@@ -49,6 +49,11 @@
   backdrop-filter: none;
 }
 
+.site-header.over-dentist .brand img {
+  filter: url('/assets/logo-filters-v1.svg#dark');
+  mix-blend-mode: normal;
+}
+
 .hero-film {
   position: absolute;
   inset: 0;

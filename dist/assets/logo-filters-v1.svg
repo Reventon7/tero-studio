@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg">
+  <filter id="dark" color-interpolation-filters="sRGB">
+    <!-- Isolate the white lettering and red ring as separate transparent masks. -->
+    <feColorMatrix in="SourceGraphic" type="matrix" values="
+      0 0 0 0 0
+      0 0 0 0 0
+      0 0 0 0 0
+      -.28 1.30 0 0 -.02" result="letters"/>
+    <feColorMatrix in="SourceGraphic" type="matrix" values="
+      0 0 0 0 0
+      0 0 0 0 0
+      0 0 0 0 0
+      1.58 -1.58 0 0 -.012" result="ring"/>
+    <feFlood flood-color="#f4857a"/>
+    <feComposite in2="ring" operator="in" result="coral"/>
+    <feMerge>
+      <feMergeNode in="letters"/>
+      <feMergeNode in="coral"/>
+    </feMerge>
+  </filter>
+</svg>
