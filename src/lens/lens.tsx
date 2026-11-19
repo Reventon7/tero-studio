@@ -214,27 +214,24 @@ function HeadlightSelector({ selected, select }: { selected: Light; select: (val
 
 type LensSpecifications = {
   name: string;
+  suitedTo: string;
   rows: readonly (readonly [string, string])[];
   metrics?: Record<string, { field: string; depth: string; suitedTo: string }>;
 };
 
 function TechnicalDataCard({ specifications, power }: { specifications: LensSpecifications; power: Magnification }) {
   const metric = specifications.metrics?.[String(power.scale)];
+  const field = metric?.field ?? specifications.rows.find(([key]) => key === 'Field of view')?.[1] ?? 'Pending';
+  const depth = metric?.depth ?? specifications.rows.find(([key]) => key === 'Depth of field')?.[1] ?? 'Pending';
   return <aside className="catalog-specifications">
-    {metric ? <>
-      <dl className="catalog-optical-metrics" aria-label={`${specifications.name} at ${power.label}`} aria-live="polite" aria-atomic="true">
-        <div><dt className="lens-label">Field of view</dt><dd>{metric.field}</dd></div>
-        <div><dt className="lens-label">Depth of field</dt><dd>{metric.depth}</dd></div>
-        <div className="catalog-metric-usage"><dt className="lens-label">Suited to</dt><dd>{metric.suitedTo}<small>{specifications.name} · {power.label}</small></dd></div>
-      </dl>
-      <p>Illustrative values from the previous TERO demo. Actual field and depth depend on your configuration and working distance.</p>
-    </> : <>
-      <table>
-        <caption>{specifications.name} specifications</caption>
-        <tbody>{specifications.rows.map(([key, value]) => <tr key={key}><th scope="row">{key}</th><td>{value}</td></tr>)}</tbody>
-      </table>
-      <p>From the TERO product catalog.</p>
-    </>}
+    <dl className="catalog-optical-metrics" aria-label={`${specifications.name} at ${power.label}`} aria-live="polite" aria-atomic="true">
+      <div><dt className="lens-label">Field of view</dt><dd>{field}</dd></div>
+      <div><dt className="lens-label">Depth of field</dt><dd>{depth}</dd></div>
+      <div className="catalog-metric-usage"><dt className="lens-label">Suited to</dt><dd>{metric?.suitedTo ?? specifications.suitedTo}<small>{specifications.name} · {power.label}</small></dd></div>
+    </dl>
+    <p>{metric
+      ? 'Illustrative comparison. Actual field and depth depend on your configuration and working distance.'
+      : 'Millimetre measurements are pending confirmation.'}</p>
   </aside>;
 }
 
