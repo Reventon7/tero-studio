@@ -472,9 +472,12 @@ h1 em, h2 em { font-weight: 500; }
 .products-nav summary::after { content: ''; width: 7px; height: 7px; border: solid currentColor; border-width: 0 1px 1px 0; transform: translateY(-2px) rotate(45deg); }
 .products-nav[open] summary::after { transform: translateY(2px) rotate(225deg); }
 .desktop-nav .products-nav summary { min-height: 44px; }
-.desktop-nav .products-links { position: absolute; inset: 100% auto auto -15px; min-width: 160px; padding: 5px; border: 1px solid #ffffff29; border-radius: 8px; background: #121a20; color: #f1f3ee; }
+.desktop-nav .products-links { position: absolute; inset: 100% auto auto -15px; min-width: 160px; padding: 5px; border: 1px solid #ffffff29; border-radius: 8px; background: #000; color: #f1f3ee; }
 .desktop-nav .products-links a { min-height: 44px; padding-inline: 12px; border-radius: 4px; }
 .desktop-nav .products-links a::after { display: none; }
 .desktop-nav .products-links a:hover { background: #ffffff13; opacity: 1; }
 .mobile-menu .products-nav summary { min-height: 58px; font-size: 30px; letter-spacing: -1px; border-bottom: 1px solid #ffffff20; }
 .mobile-menu .products-links a { padding-inline-start: 20px; font-size: 19px; letter-spacing: 0; min-height: 44px; }
+
+#contact:focus { outline: none; }
+.mobile-menu .products-links { background: #000; }

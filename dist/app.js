@@ -1,5 +1,6 @@
 import {createScrollFilm} from './hero-film.js';
 import {prefetchCatalog} from './navigation.js';
+import './product-dialog.js';
 import {loadLens, loadLighting} from './bundles/entries.js';
 
 history.scrollRestoration = 'manual';
@@ -86,19 +87,6 @@ lightToggle.addEventListener('click', () => {
   lightingScene?.setFilter(Number(filterActive));
 });
 
-const dialog=$('#detail-dialog');let opener;
-function openDialog(kind){opener=document.activeElement;const data={anatomy:{title:'Every element.<br>One perspective.',image:'hero',alt:'Original TERO loupe photography',text:'A closer look at the relationship between frame, optics and light. The hero film shows how the parts come together.',list:['Frame and temple design','Twin optical housings','Eyewear-mounted lighting'],note:'Illustrative geometry, not a dimensional or internal engineering model.'},detail:{title:'The finer details.',image:'detail',alt:'TERO optical housing close-up',text:'The original photography reveals the finish and proportions of the TERO optical housing. Explore its form, from the front lens to the meeting of optic and frame.'},kit:{title:'Light. Complete.',image:'light-kit',alt:'TERO lighting kit and accessories',text:'The supplied kit photography shows the lighting system with its accessories and filter. Refer to your supplier to confirm kit contents and frame compatibility.'}}[kind];if(!data)return;const content=`<div class="dialog-grid"><img src="assets/${data.image}-v1.webp" alt="${data.alt}"><div><h2 id="dialog-title">${data.title}</h2><p>${data.text}</p>${data.list?'<ul>'+data.list.map(s=>'<li>'+s+'</li>').join('')+'</ul>':''}${data.note?'<p class="dialog-note">'+data.note+'</p>':''}</div></div>`;$('#dialog-content').innerHTML=content;dialog.showModal();document.body.style.overflow='hidden'}
-$$('[data-open]').forEach(b=>b.addEventListener('click',()=>openDialog(b.dataset.open)));
-dialog.querySelector('[data-close]').addEventListener('click', () => dialog.close());
-dialog.addEventListener('click', event => {
-  if (event.target !== dialog) return;
-  const { left, top, right, bottom } = dialog.getBoundingClientRect();
-  if (event.clientX < left || event.clientX > right || event.clientY < top || event.clientY > bottom) dialog.close();
-});
-dialog.addEventListener('close', () => {
-  document.body.style.overflow = '';
-  opener?.focus({ preventScroll: true });
-});
 
 const experience = $('.film-experience');
 const story = $('#experience');
@@ -305,7 +293,7 @@ addEventListener('pageshow', event => {
   measureScroll();
 });
 
-async function initMotion(){await document.fonts.ready;if(!window.gsap||!window.ScrollTrigger)return;gsap.registerPlugin(ScrollTrigger);ScrollTrigger.clearScrollMemory('manual');const mm=gsap.matchMedia();mm.add('(prefers-reduced-motion: no-preference)',()=>{if(entryAnchor !== '#contact')gsap.from('.site-header',{y:-12,autoAlpha:0,duration:.65,ease:'power3.out'});$$('.reveal').forEach(el=>gsap.from(el,{y:35,autoAlpha:0,duration:.9,ease:'power3.out',scrollTrigger:{trigger:el,start:'top 90%',once:true}}));gsap.to('.craft-media',{yPercent:8,ease:'none',scrollTrigger:{trigger:'.craft',start:'top bottom',end:'bottom top',scrub:1}});});
+async function initMotion(){await document.fonts.ready;if(!window.gsap||!window.ScrollTrigger)return;gsap.registerPlugin(ScrollTrigger);ScrollTrigger.clearScrollMemory('manual');const mm=gsap.matchMedia();mm.add('(prefers-reduced-motion: no-preference)',()=>{if(entryAnchor !== '#contact')gsap.from('.site-header',{y:-12,autoAlpha:0,duration:.65,ease:'power3.out'});$$('.reveal').forEach(el=>gsap.from(el,{y:35,autoAlpha:0,duration:.9,ease:'power3.out',scrollTrigger:{trigger:el,start:'top 90%',once:true}}));});
  const statement=$('#manifesto-text'),words=statement.textContent.trim().split(/\s+/);statement.setAttribute('aria-label',words.join(' '));statement.innerHTML=words.map(w=>`<span aria-hidden="true">${w}</span>`).join(' ');const spans=[...statement.children];ScrollTrigger.create({trigger:statement,start:'top 85%',end:'bottom 40%',onUpdate:self=>spans.forEach((s,i)=>s.classList.toggle('lit',motion.matches||i/spans.length<self.progress+.08))});if(motion.matches)spans.forEach(s=>s.classList.add('lit'));ScrollTrigger.refresh();window.addEventListener('pagehide',event=>{if(!event.persisted)mm.revert()})}
 initMotion().finally(() => {
   // ScrollTrigger's initial refresh can interrupt the browser's smooth fragment scroll.

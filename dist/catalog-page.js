@@ -1,6 +1,20 @@
 import {prefetchCatalog} from './navigation.js';
+import './product-dialog.js';
 
 addEventListener('load', prefetchCatalog, { once: true });
+
+const craft = document.querySelector('#craft');
+if (craft && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  addEventListener('DOMContentLoaded', () => {
+    if (!window.gsap || !window.ScrollTrigger) return;
+    gsap.registerPlugin(ScrollTrigger);
+    gsap.to(craft.querySelector('.craft-media'), {
+      yPercent: 8,
+      ease: 'none',
+      scrollTrigger: { trigger: craft, start: 'top bottom', end: 'bottom top', scrub: 1 }
+    });
+  }, { once: true });
+}
 
 const demo = document.querySelector('[data-loupe-powers]');
 if (demo) {

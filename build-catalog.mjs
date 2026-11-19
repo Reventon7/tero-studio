@@ -68,6 +68,7 @@ const home = await readFile('dist/index.html', 'utf8');
 const shared = html => html.replaceAll('href="#top"', 'href="/"').replaceAll('href="#contact"', 'href="/#contact"');
 const header = shared(home.match(/<header class="site-header">[\s\S]*?<\/header>/)[0]);
 const footer = shared(home.match(/<footer class="site-footer">[\s\S]*?<\/footer>/)[0]);
+const detailDialog = home.match(/<dialog id="detail-dialog"[\s\S]*?<\/dialog>/)[0];
 const mobileMenu = shared(home.match(/<dialog id="mobile-menu"[\s\S]*?<\/dialog>/)[0]);
 
 function escape(value) {
@@ -139,6 +140,7 @@ async function page(route, title, description, content, interactive = false) {
   <link rel="stylesheet" href="/style.css">
   ${interactive ? '<link rel="stylesheet" href="/lens.css">' : ''}
   <link rel="stylesheet" href="/catalog.css">
+  ${route === '/about' ? '<script defer src="/vendor/gsap.min.js"></script><script defer src="/vendor/ScrollTrigger.min.js"></script>' : ''}
   <script type="module" src="/catalog-page.js"></script>
 </head>
 <body class="catalog-page">
@@ -237,4 +239,13 @@ await page('/about', 'About us', 'TERO designs optics, lighting and seating arou
       </div>
       <div class="catalog-media catalog-about-photo">${photo('tero-about-catalog-v1.webp', 'A hand holding TERO loupes from the product catalog')}</div>
     </div>
-  </section>`);
+  </section>
+  <section class="craft" id="craft">
+    <div class="craft-media"><img src="/assets/detail-v1.webp" alt="Close-up of the silver TERO optical housing" loading="lazy"></div>
+    <div class="craft-copy">
+      <h2>Small details.<br><em>A different world.</em></h2>
+      <p>Look closer. The shape of the housing.<br>The meeting of frame and optic.<br>The details that define TERO.</p>
+      <button class="text-link" data-open="detail">Take a closer look <span>+</span></button>
+    </div>
+  </section>
+  ${detailDialog}`);
