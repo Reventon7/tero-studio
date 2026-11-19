@@ -10,7 +10,7 @@ if (demo) {
     try {
       const { loadLens } = await import('./bundles/entries.js');
       const { mountLens } = await loadLens();
-      mountLens(demo, demo.dataset.loupePowers.split(',').map(Number));
+      mountLens(demo, demo.dataset.loupePowers.split(',').map(Number), JSON.parse(demo.dataset.loupeSpecifications));
     } catch {
       demo.textContent = 'The interactive loupe could not load. Refresh to try again.';
     }

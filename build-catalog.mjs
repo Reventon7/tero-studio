@@ -6,31 +6,41 @@ const loupes = [
     slug: 'ergo-hd', name: 'Ergo HD', image: 'ergo-clean-v1.webp', powers: [3.5, 4, 5, 6, 8],
     summary: 'Five magnifications in the ergonomic loupe family.',
     description: 'The Ergo HD range spans 3.5× to 8×. Its ergonomic viewing geometry is designed to give a clear view of the working area while supporting a more upright posture.',
-    facts: [['System', 'Ergonomic optics'], ['Viewing position', 'Designed for a relaxed working posture']]
+    facts: [['System', 'Ergonomic optics'], ['Viewing position', 'Designed for a relaxed working posture']],
+    specifications: [['Optical system', 'Ergonomic'], ['Viewing posture', 'Naturally relaxed and upright']]
   },
   {
     slug: 'ergo-hd-zm', name: 'Ergo HD ZM', image: 'ergo-zm-clean-v1.webp', powers: [3.5, 5, 8],
     summary: 'Ergonomic optics with adjustable working distance.',
     description: 'Ergo HD ZM lets you adjust the working distance. That adjustment helps you bring the working area into focus as the distance between you and the patient changes.',
-    facts: [['System', 'Ergonomic optics'], ['Working distance', 'Adjustable']]
+    facts: [['System', 'Ergonomic optics'], ['Working distance', 'Adjustable']],
+    specifications: [['Optical system', 'Ergonomic'], ['Working distance', 'Adjustable']]
   },
   {
     slug: 'galilean', name: 'Galilean', image: 'galilean-clean-v1.webp', powers: [2.5, 3, 3.5],
     summary: 'Compact, lightweight optics with a broad field of view.',
     description: 'TERO’s Galilean system combines a compact optical housing with a broad field of view and good depth of field. It is designed to keep more of the working area in view at lower magnifications.',
-    facts: [['System', 'Galilean optics'], ['Field and depth of view', 'Broad field of view with good depth of field']]
+    facts: [['System', 'Galilean optics'], ['Field and depth of view', 'Broad field of view with good depth of field']],
+    specifications: [['Optical system', 'Galilean'], ['Housing', 'Compact and lightweight'], ['Field of view', 'Broad'], ['Depth of field', 'Excellent']],
+    metrics: {
+      2.5: { field: '100 mm', depth: '140 mm', suitedTo: 'Hygiene, exams and general procedures' },
+      3: { field: '85 mm', depth: '110 mm', suitedTo: 'Everyday restorative dentistry' },
+      3.5: { field: '65 mm', depth: '80 mm', suitedTo: 'Crown preparation and fine margins' }
+    }
   },
   {
     slug: 'galilean-hd', name: 'Galilean HD', image: 'galilean-hd-clean-v1.webp', powers: [2.5, 3, 3.5],
     summary: 'Lightweight Galilean optics designed for a sharp, wide view.',
     description: 'Galilean HD retains the lightweight format of the Galilean family and emphasizes image sharpness, a wide field of view and useful depth of field across the available magnifications.',
-    facts: [['System', 'Galilean HD optics'], ['Optical design', 'Sharp, wide view in a lightweight housing']]
+    facts: [['System', 'Galilean HD optics'], ['Optical design', 'Sharp, wide view in a lightweight housing']],
+    specifications: [['Optical system', 'Galilean HD'], ['Image quality', 'High optical quality and sharpness'], ['Field of view', 'Wide'], ['Depth of field', 'Wide'], ['Housing', 'Lightweight']]
   },
   {
     slug: 'prismatic', name: 'Prismatic', image: 'prismatic-clean-v1.webp', powers: [4, 5],
     summary: 'Keplerian optics for higher magnification and crisp edges.',
     description: 'The Prismatic system, also called Keplerian, offers higher magnification than the Galilean range. The catalog emphasizes image resolution and edge definition at both 4× and 5×.',
-    facts: [['System', 'Keplerian optics'], ['Optical design', 'Higher magnification with clear edge definition']]
+    facts: [['System', 'Keplerian optics'], ['Optical design', 'Higher magnification with clear edge definition']],
+    specifications: [['Optical system', 'Prismatic / Keplerian'], ['Image quality', 'High resolution'], ['Edge definition', 'Clear and precise']]
   }
 ];
 
@@ -140,13 +150,18 @@ await page('/loupes', 'Loupes', 'Explore the five TERO loupe systems.',
   intro('Loupes', 'Compare five TERO optical systems by magnification, working distance and field of view.') + cards(loupes, '/loupes'));
 
 for (const product of loupes) {
+  const specifications = {
+    name: product.name,
+    rows: [['Magnifications', powersLabel(product.powers)], ...product.specifications],
+    metrics: product.metrics
+  };
   await page(`/loupes/${product.slug}`, product.name, product.summary,
     detail(product, { name: 'Loupes', url: '/loupes' }, 'Ask about this model') + `
     <section class="lens-section catalog-lens" aria-labelledby="lens-title">
       <div class="catalog-shell">
         <h2 id="lens-title">Through the lens.</h2>
         <p class="catalog-demo-note">Try this model’s magnifications on a dental cast. The view is illustrative.</p>
-        <div id="lens-interactive" data-loupe-powers="${product.powers.join(',')}">
+        <div id="lens-interactive" data-loupe-powers="${product.powers.join(',')}" data-loupe-specifications="${escape(JSON.stringify(specifications))}">
           <noscript><img src="/assets/dental-casts-rebuilt-v1.webp" alt="White plaster dental casts"></noscript>
         </div>
       </div>

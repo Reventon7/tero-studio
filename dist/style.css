@@ -54,6 +54,21 @@
   mix-blend-mode: normal;
 }
 
+html[data-contact-entry] { scroll-behavior: auto; }
+html[data-contact-entry] body { background: #e9e8e2; }
+html[data-contact-entry] main > :not(#contact),
+html[data-contact-entry] main > :not(#contact) * { visibility: hidden !important; }
+html[data-contact-entry] .site-header {
+  height: 76px;
+  color: #18252c;
+  background: #f1f4f0d9;
+  transition: none;
+}
+html[data-contact-entry] .site-header .brand img {
+  filter: url('/assets/logo-filters-v1.svg#dark');
+  mix-blend-mode: normal;
+}
+
 .hero-film {
   position: absolute;
   inset: 0;

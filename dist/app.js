@@ -6,6 +6,13 @@ history.scrollRestoration = 'manual';
 const entryAnchor = location.hash;
 if (entryAnchor === '#seating') location.replace('/chair');
 if (!entryAnchor) scrollTo({ top: 0, left: 0, behavior: 'instant' });
+if (entryAnchor === '#contact') positionContactEntry();
+
+function positionContactEntry() {
+  const contact = document.querySelector('#contact');
+  const offset = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
+  scrollTo({ top: Math.max(0, contact.getBoundingClientRect().top + scrollY - offset), behavior: 'instant' });
+}
 
 function reuseLoad(load) {
   let pending;
@@ -100,7 +107,7 @@ const stage = $('#film-stage');
 const heroPanel = stage.firstElementChild;
 const dentistPanel = stage.lastElementChild;
 const header = $('.site-header');
-const lightSections = $$('.questions');
+const lightSections = $$('.questions, #contact, .site-footer');
 const clampProgress = value => Math.max(0, Math.min(1, value));
 const easeProgress = value => {
   const p = clampProgress(value);
@@ -298,11 +305,15 @@ addEventListener('pageshow', event => {
   measureScroll();
 });
 
-async function initMotion(){await document.fonts.ready;if(!window.gsap||!window.ScrollTrigger)return;gsap.registerPlugin(ScrollTrigger);ScrollTrigger.clearScrollMemory('manual');const mm=gsap.matchMedia();mm.add('(prefers-reduced-motion: no-preference)',()=>{gsap.from('.site-header',{y:-12,autoAlpha:0,duration:.65,ease:'power3.out'});$$('.reveal').forEach(el=>gsap.from(el,{y:35,autoAlpha:0,duration:.9,ease:'power3.out',scrollTrigger:{trigger:el,start:'top 90%',once:true}}));gsap.to('.craft-media',{yPercent:8,ease:'none',scrollTrigger:{trigger:'.craft',start:'top bottom',end:'bottom top',scrub:1}});});
+async function initMotion(){await document.fonts.ready;if(!window.gsap||!window.ScrollTrigger)return;gsap.registerPlugin(ScrollTrigger);ScrollTrigger.clearScrollMemory('manual');const mm=gsap.matchMedia();mm.add('(prefers-reduced-motion: no-preference)',()=>{if(entryAnchor !== '#contact')gsap.from('.site-header',{y:-12,autoAlpha:0,duration:.65,ease:'power3.out'});$$('.reveal').forEach(el=>gsap.from(el,{y:35,autoAlpha:0,duration:.9,ease:'power3.out',scrollTrigger:{trigger:el,start:'top 90%',once:true}}));gsap.to('.craft-media',{yPercent:8,ease:'none',scrollTrigger:{trigger:'.craft',start:'top bottom',end:'bottom top',scrub:1}});});
  const statement=$('#manifesto-text'),words=statement.textContent.trim().split(/\s+/);statement.setAttribute('aria-label',words.join(' '));statement.innerHTML=words.map(w=>`<span aria-hidden="true">${w}</span>`).join(' ');const spans=[...statement.children];ScrollTrigger.create({trigger:statement,start:'top 85%',end:'bottom 40%',onUpdate:self=>spans.forEach((s,i)=>s.classList.toggle('lit',motion.matches||i/spans.length<self.progress+.08))});if(motion.matches)spans.forEach(s=>s.classList.add('lit'));ScrollTrigger.refresh();window.addEventListener('pagehide',event=>{if(!event.persisted)mm.revert()})}
-initMotion().then(() => {
+initMotion().finally(() => {
   // ScrollTrigger's initial refresh can interrupt the browser's smooth fragment scroll.
-  if ([lensAnchor, '#contact', '#human-perspective', '#philosophy'].includes(entryAnchor) && location.hash === entryAnchor) {
+  if (entryAnchor === '#contact' && location.hash === entryAnchor) {
+    positionContactEntry();
+    measureScroll();
+    requestAnimationFrame(() => delete document.documentElement.dataset.contactEntry);
+  } else if ([lensAnchor, '#human-perspective', '#philosophy'].includes(entryAnchor) && location.hash === entryAnchor) {
     document.querySelector(entryAnchor).scrollIntoView({ behavior: 'instant' });
   }
 });

@@ -212,21 +212,50 @@ function HeadlightSelector({ selected, select }: { selected: Light; select: (val
   </fieldset>;
 }
 
-function MagnificationSection({ options, initial }: { options: readonly Magnification[]; initial: Magnification }) {
+type LensSpecifications = {
+  name: string;
+  rows: readonly (readonly [string, string])[];
+  metrics?: Record<string, { field: string; depth: string; suitedTo: string }>;
+};
+
+function TechnicalDataCard({ specifications, power }: { specifications: LensSpecifications; power: Magnification }) {
+  const metric = specifications.metrics?.[String(power.scale)];
+  return <aside className="catalog-specifications">
+    {metric ? <>
+      <dl className="catalog-optical-metrics" aria-label={`${specifications.name} at ${power.label}`} aria-live="polite" aria-atomic="true">
+        <div><dt className="lens-label">Field of view</dt><dd>{metric.field}</dd></div>
+        <div><dt className="lens-label">Depth of field</dt><dd>{metric.depth}</dd></div>
+        <div className="catalog-metric-usage"><dt className="lens-label">Suited to</dt><dd>{metric.suitedTo}<small>{specifications.name} · {power.label}</small></dd></div>
+      </dl>
+      <p>Illustrative values from the previous TERO demo. Actual field and depth depend on your configuration and working distance.</p>
+    </> : <>
+      <table>
+        <caption>{specifications.name} specifications</caption>
+        <tbody>{specifications.rows.map(([key, value]) => <tr key={key}><th scope="row">{key}</th><td>{value}</td></tr>)}</tbody>
+      </table>
+      <p>From the TERO product catalog.</p>
+    </>}
+  </aside>;
+}
+
+function MagnificationSection({ options, initial, specifications }: {
+  options: readonly Magnification[]; initial: Magnification; specifications?: LensSpecifications;
+}) {
   const [power, setPower] = useState<Magnification>(initial);
   const [light, setLight] = useState<Light>('none');
-  return <div className="lens-layout grid">
+  return <div className={`lens-layout grid${specifications ? ' lens-layout--product' : ''}`}>
     <LoupeViewer power={power} light={light} />
     <div className="lens-controls grid">
       <MagnificationSelector options={options} selected={power} select={setPower} />
+      {specifications && <TechnicalDataCard specifications={specifications} power={power} />}
       <HeadlightSelector selected={light} select={setLight} />
     </div>
   </div>;
 }
 
-export function mountLens(element: HTMLElement, powers?: readonly number[]) {
+export function mountLens(element: HTMLElement, powers?: readonly number[], specifications?: LensSpecifications) {
   const modelOptions = powers ? magnifications.filter(option => powers.includes(option.scale)) : [];
   const options = modelOptions.length ? modelOptions : magnifications;
   const initial = modelOptions[0] ?? magnifications[3];
-  createRoot(element).render(<MagnificationSection options={options} initial={initial} />);
+  createRoot(element).render(<MagnificationSection options={options} initial={initial} specifications={specifications} />);
 }

@@ -45,6 +45,22 @@
 .catalog-lens > .catalog-shell { padding-inline: 0; }
 .catalog-lens .catalog-demo-note { max-width: 1160px; margin: -20px auto 28px; text-align: center; color: #b2bab5; }
 .catalog-lens #lens-interactive:empty::before, .catalog-lens #lens-interactive:empty::after { display: block; }
+.catalog-lens #lens-interactive { max-width: 1260px; }
+.catalog-lens .lens-layout--product { grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr); align-items: start; gap: clamp(28px, 4vw, 64px); }
+.catalog-specifications { min-width: 0; padding-top: 8px; }
+.catalog-specifications table { width: 100%; min-width: 0; border-collapse: collapse; table-layout: fixed; font-size: 14px; line-height: 1.6; }
+.catalog-specifications caption { text-align: left; font-size: 22px; font-weight: 500; line-height: 1.3; padding-bottom: 22px; }
+.catalog-specifications th, .catalog-specifications td { padding: 16px 0; vertical-align: top; border-bottom: 1px solid #ffffff26; overflow-wrap: anywhere; }
+.catalog-specifications th { width: 45%; padding-right: 20px; text-align: left; font-size: 13px; font-weight: 500; letter-spacing: normal; text-transform: none; color: #b2bab5; }
+.catalog-specifications > p { margin-top: 18px; color: #b2bab5; font-size: 12px; }
+.catalog-optical-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; border: 1px solid #ffffff26; border-radius: 22px; overflow: hidden; }
+.catalog-optical-metrics > div { padding: clamp(18px, 2vw, 28px); }
+.catalog-optical-metrics > div:first-child { border-right: 1px solid #ffffff26; }
+.catalog-optical-metrics dd { margin: 14px 0 0; font-size: clamp(24px, 2.6vw, 36px); line-height: 1.2; letter-spacing: -.04em; }
+.catalog-optical-metrics .catalog-metric-usage { grid-column: 1 / -1; border-top: 1px solid #ffffff26; }
+.catalog-metric-usage dd { font-size: 16px; line-height: 1.55; letter-spacing: normal; }
+.catalog-metric-usage small { display: block; color: #b2bab5; font-size: 12px; margin-top: 6px; }
+@media (max-width: 900px) { .catalog-lens .lens-layout--product { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 900px) { .catalog-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 650px) {
   .catalog-grid, .catalog-detail, .catalog-factors { grid-template-columns: minmax(0, 1fr); }
