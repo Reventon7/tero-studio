@@ -35,7 +35,7 @@ menu.addEventListener('close', () => {
   document.body.style.overflow = '';
   menuToggle.focus({ preventScroll: true });
 });
-matchMedia('(min-width: 761px)').addEventListener('change', event => {
+matchMedia('(min-width: 1101px) and (min-height: 521px)').addEventListener('change', event => {
   if (event.matches && menu.open) menu.close();
 });
 

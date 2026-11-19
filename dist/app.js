@@ -146,7 +146,7 @@ const heroFilm = createScrollFilm($('#hero-film'), $('#hero-ambient'), motion, {
   widths: [1920, 832], retainEndpoints: true,
   ambientMedia: '(max-width: 760px), (max-aspect-ratio: 3/2), (min-aspect-ratio: 8/5)',
   ambientStrip: {
-    media: '(min-width: 761px) and (min-aspect-ratio: 8/5)',
+    media: '(min-width: 1101px) and (min-height: 521px) and (min-aspect-ratio: 8/5)',
     background: { left: .072, right: .116 },
     floor: { left: .075, top: .72, fadeEnd: .79 },
     width: .18
@@ -160,6 +160,9 @@ const heroFilm = createScrollFilm($('#hero-film'), $('#hero-ambient'), motion, {
 });
 let dentistFilm;
 const dentistFrameCount = 575;
+// Motion begins at source frame 55 (24 fps). Retain six source frames of lead-in.
+const dentistStartFrame = 98;
+dentistStory.style.setProperty('--dentist-span-ratio', (dentistFrameCount - 1 - dentistStartFrame) / (dentistFrameCount - 1));
 const dentistChapters = dentistPanel.querySelector('.film-chapters');
 const ergonomicFrame = Number(dentistChapters.lastElementChild.dataset.start);
 const updateDentistCopy = animateChapters(dentistChapters);
@@ -168,7 +171,7 @@ function prepareDentist() {
   dentistFilm ??= createScrollFilm($('#dentist-film'), $('#dentist-ambient'), motion, {
     preview: { desktop: 'scrub-540-preview-v1.mp4' },
     media: { desktop: 'scrub-720-v4.mp4', mobile: 'scrub-540-v4.mp4' },
-    directory: 'dentist-final-48', frameCount: dentistFrameCount, widths: [1152, 768],
+    directory: 'dentist-final-48', frameCount: dentistFrameCount, startFrame: dentistStartFrame, widths: [1152, 768],
     settleTime: 48, retainEndpoints: true, startActive: false, onFrame: updateDentistCopy,
     async onReady() {
       warmBelowFold();
@@ -219,7 +222,7 @@ function scrollState() {
   const heroEnd = blendStart - (reduced ? height * .12 : 0);
   const progress = clampProgress((y - heroStart) / Math.max(1, heroEnd - heroStart));
   // Show the final frame while the stage is still pinned, before the next section enters.
-  const clinicalStart = reduced ? dentistStart : (blendStart + dentistStart) / 2;
+  const clinicalStart = reduced ? dentistStart : blendStart;
   const dentistEnd = stageRelease - height * .5;
   const clinicalProgress = clampProgress((y - clinicalStart) / Math.max(1, dentistEnd - clinicalStart));
   const overFilm = y < filmBottom - 76;
@@ -243,7 +246,8 @@ function scrollState() {
   });
   const dentistNear = y >= blendStart - height * 1.55 && y < stageRelease + height;
   dentistFilm?.setActive(dentistNear);
-  const clinicalStill = clinicalProgress < ergonomicFrame / (dentistFrameCount - 1) ? 0 : 1;
+  const clinicalFrame = dentistStartFrame + clinicalProgress * (dentistFrameCount - 1 - dentistStartFrame);
+  const clinicalStill = clinicalFrame < ergonomicFrame ? 0 : 1;
   dentistFilm?.setProgress(motion.matches ? clinicalStill : clinicalProgress, {
     immediate: y <= clinicalStart || y >= stageRelease
   });
@@ -279,6 +283,23 @@ function measureScroll() {
   scrollState();
 }
 addEventListener('resize', measureScroll);
+// Keep the active contact field above a mobile keyboard after viewport resizing.
+function keepContactFieldVisible() {
+  const field = document.activeElement;
+  if (!matchMedia('(max-width: 1100px), (any-pointer: coarse)').matches ||
+      !field?.matches('#contact-form input, #contact-form select, #contact-form textarea')) return;
+  requestAnimationFrame(() => {
+    const viewport = window.visualViewport;
+    const top = (viewport?.offsetTop || 0) + header.getBoundingClientRect().height + 12;
+    const bottom = (viewport?.offsetTop || 0) + (viewport?.height || innerHeight) - 16;
+    const rect = field.getBoundingClientRect();
+    if (rect.top < top || rect.bottom > bottom) {
+      scrollBy({ top: rect.top + rect.height / 2 - (top + bottom) / 2, behavior: 'instant' });
+    }
+  });
+}
+addEventListener('resize', keepContactFieldVisible);
+window.visualViewport?.addEventListener('resize', keepContactFieldVisible);
 const scrollSizer = new ResizeObserver(measureScroll);
 [$('main'), stage, lightingSection, lightingTrack].forEach(element => scrollSizer.observe(element));
 measureScroll();

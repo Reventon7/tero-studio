@@ -168,7 +168,7 @@ function createFilmBackdrop(ambient, ambientMedia = '(max-aspect-ratio: 8/5), (m
 }
 
 export function createScrollFilm(canvas, ambient, motion, options) {
-  const { directory, media, preview, frameCount, openingFrame = 0, onFrame, onReady,
+  const { directory, media, preview, frameCount, openingFrame = 0, startFrame = 0, onFrame, onReady,
     ambientMedia, ambientStrip, settleTime = 95, startActive = true } = options;
   const mobile = matchMedia('(max-width: 760px)').matches;
   const highDpi = innerWidth * devicePixelRatio >= 2200;
@@ -196,6 +196,8 @@ export function createScrollFilm(canvas, ambient, motion, options) {
   }
 
   const toTime = frame => Math.floor(frame / 2) / VIDEO_RATE + .004;
+  const firstFrame = Math.max(startFrame, openingFrame);
+  const firstTime = toTime(firstFrame);
   const introEnd = openingFrame / FRAME_RATE;
   const lastTime = toTime(frameCount - 1);
   let active = startActive;
@@ -205,8 +207,8 @@ export function createScrollFilm(canvas, ambient, motion, options) {
   let endPending = false;
   let queued = 0;
   let previousTick = 0;
-  let position = introEnd;
-  let target = introEnd;
+  let position = firstTime;
+  let target = firstTime;
   let latestProgress = 0;
   let introSkipped = false;
   let publishedFrame = -1;
@@ -272,6 +274,7 @@ export function createScrollFilm(canvas, ambient, motion, options) {
 
   function publish(mediaTime) {
     if ((!active && !endPending) || !previewReady || video.readyState < 2) return;
+    if (!opening && mediaTime < firstTime - 1 / VIDEO_RATE) return;
     const sourceFrame = Math.floor(mediaTime * VIDEO_RATE + .02);
     const frame = sourceFrame === Math.floor((frameCount - 1) / 2) ? frameCount - 1 : sourceFrame * 2;
     if (frame === frameCount - 1) endPending = false;
@@ -452,10 +455,10 @@ export function createScrollFilm(canvas, ambient, motion, options) {
       endPending = false;
       publishedFrame = -1;
       previousTick = 0;
-      onFrame?.(0);
+      onFrame?.(opening ? 0 : firstFrame);
       video.classList.remove('ready');
       delete canvas.dataset.frame;
-      target = position = toTime(openingFrame);
+      target = position = firstTime;
       video.pause();
       if (previewReady) video.currentTime = opening ? 0 : target;
       schedule();
@@ -480,7 +483,7 @@ export function createScrollFilm(canvas, ambient, motion, options) {
         video.pause();
       }
       endPending = Boolean(openingFrame && immediate && progress === 1 && publishedFrame !== frameCount - 1);
-      const time = toTime(openingFrame + progress * (frameCount - 1 - openingFrame));
+      const time = toTime(firstFrame + progress * (frameCount - 1 - firstFrame));
       if (time === target && (!immediate || position === time) && (introStarted || !opening)) {
         if (endPending) schedule();
         return;
@@ -494,12 +497,13 @@ export function createScrollFilm(canvas, ambient, motion, options) {
 }
 
 function createSheetFilm(canvas, motion, {
-  directory, frameCount, openingFrame = 0, widths = [1280, 832],
+  directory, frameCount, openingFrame = 0, startFrame = 0, widths = [1280, 832],
   onFrame,
   settleTime = 95, retainEndpoints = false
 }, backdrop) {
   const lastSheet = sheetAt(frameCount - 1);
-  const openingSheet = sheetAt(openingFrame);
+  const firstFrame = Math.max(startFrame, openingFrame);
+  const openingSheet = sheetAt(firstFrame);
   // The pinned dentist sequence needs its first and last frames ready in both directions.
   const endpointSheets = retainEndpoints ? [openingSheet, lastSheet] : [];
   const compact = matchMedia('(max-width: 760px)').matches;
@@ -520,8 +524,8 @@ function createSheetFilm(canvas, motion, {
   const failures = new Map();
   let decodeWindow = [];
   let active = true;
-  let target = openingFrame;
-  let position = motion.matches ? openingFrame : 0;
+  let target = firstFrame;
+  let position = openingFrame > 0 && !motion.matches ? 0 : firstFrame;
   let velocity = 0;
   let drawn = -1;
   let drawnSource;
@@ -660,7 +664,7 @@ function createSheetFilm(canvas, motion, {
     const decay = Math.exp(-elapsed / settleTime);
     const next = target + (displacement + drift * elapsed) * decay;
     velocity = (velocity - drift * elapsed / settleTime) * decay;
-    position = Math.max(openingFrame, Math.min(frameCount - 1, next));
+    position = Math.max(firstFrame, Math.min(frameCount - 1, next));
     if (position !== next) velocity = 0;
   }
 
@@ -705,11 +709,11 @@ function createSheetFilm(canvas, motion, {
       if (backdrop.isStrip()) canvas.classList.remove('ready');
       opening = openingFrame > 0 && !motion.matches;
       openingTime = undefined;
-      target = openingFrame;
-      position = opening ? 0 : openingFrame;
+      target = firstFrame;
+      position = opening ? 0 : firstFrame;
       velocity = lastTime = 0;
       drawn = -1;
-      onFrame?.(0);
+      onFrame?.(opening ? 0 : firstFrame);
       schedule();
     },
     setActive(value) {
@@ -735,9 +739,9 @@ function createSheetFilm(canvas, motion, {
     setProgress(progress, { immediate = false, skipIntro = progress > .015 } = {}) {
       if (opening && (skipIntro || motion.matches)) {
         opening = false;
-        position = Math.max(position, openingFrame);
+        position = Math.max(position, firstFrame);
       }
-      const next = openingFrame + progress * (frameCount - 1 - openingFrame);
+      const next = firstFrame + progress * (frameCount - 1 - firstFrame);
       const snap = immediate && position !== next;
       if (snap) {
         position = next;

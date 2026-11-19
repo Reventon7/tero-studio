@@ -131,7 +131,7 @@ async function page(route, title, description, content, interactive = false) {
 <html lang="en" dir="ltr">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#10181e">
   <title>${escape(title)} | TERO</title>
   <meta name="description" content="${escape(description)}">
