@@ -112,6 +112,9 @@ html[data-contact-entry] .site-header .brand img {
 
 .hero-film :is(canvas, video) { visibility: hidden; }
 .hero-film :is(canvas, video).ready { visibility: visible; }
+/* Keep WebKit's inline video surface available while the poster covers it. */
+.hero-film video { visibility: visible; opacity: 0; }
+.hero-film video.ready { opacity: 1; }
 .hero-film:has(.film-frames.ready) img { visibility: hidden; }
 .hero-film .film-ambient { display: none; }
 
@@ -188,13 +191,14 @@ html[data-contact-entry] .site-header .brand img {
 .film-download {
   position: absolute;
   z-index: 2;
-  inset: auto 0 0;
-  bottom: calc(var(--film-toolbar-gap, 0px) + env(safe-area-inset-bottom));
-  width: 100%;
+  inset: auto auto 0 var(--pad);
+  bottom: calc(var(--film-toolbar-gap, 0px) + 16px + env(safe-area-inset-bottom));
+  width: 56px;
   height: 2px;
   appearance: none;
   border: 0;
-  border-radius: 0;
+  border-radius: 1px;
+  overflow: hidden;
   background: #ffffff1a;
   color: #ffffff70;
 }

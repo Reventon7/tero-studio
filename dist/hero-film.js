@@ -187,6 +187,8 @@ export function createScrollFilm(canvas, ambient, motion, options) {
     element.dataset.filmTier = tier;
     element.setAttribute('aria-hidden', 'true');
     element.muted = element.defaultMuted = element.playsInline = true;
+    element.setAttribute('muted', '');
+    element.setAttribute('playsinline', '');
     element.disablePictureInPicture = true;
     element.preload = 'auto';
     return element;
@@ -221,6 +223,9 @@ export function createScrollFilm(canvas, ambient, motion, options) {
   let fallback;
   let candidate;
   let fullLoad;
+  let decodeTimer;
+  let seekTimer;
+  let introTimer;
   const download = new AbortController();
   const objectUrls = new Map();
   const progressBar = document.createElement('progress');
@@ -266,6 +271,8 @@ export function createScrollFilm(canvas, ambient, motion, options) {
     const url = URL.createObjectURL(blob);
     objectUrls.set(element, url);
     element.src = url;
+    // Explicitly start resource selection for the newly assigned Blob source.
+    element.load();
   }
 
   function releaseVideo(element) {
@@ -297,13 +304,53 @@ export function createScrollFilm(canvas, ambient, motion, options) {
     if ((active || endPending) && !fallback && !queued) queued = requestAnimationFrame(update);
   }
 
+  function ready(element) {
+    if (element !== video || fallback || element.readyState < 2 || !element.videoWidth) return;
+    clearTimeout(decodeTimer);
+    if (!previewReady) {
+      previewReady = true;
+      removeLoading();
+      onReady?.();
+    }
+    schedule();
+  }
+
+  function guardSeek() {
+    clearTimeout(seekTimer);
+    if (!active && !endPending) return;
+    const element = video;
+    seekTimer = setTimeout(() => {
+      if (fallback || element !== video || (!active && !endPending)) return;
+      if (element.seeking || element.readyState < 2) useSheets();
+      else { publish(element.currentTime); schedule(); }
+    }, 2500);
+  }
+
+  function seek(time) {
+    try { video.currentTime = time; guardSeek(); }
+    catch { useSheets(); }
+  }
+
+  function finishIntro() {
+    clearTimeout(introTimer);
+    if (fallback) return;
+    opening = false;
+    video.pause();
+    schedule();
+    alignCandidate();
+  }
+
   function update(now) {
     queued = 0;
-    if ((!active && !endPending) || fallback || !previewReady || video.seeking) return;
+    if ((!active && !endPending) || fallback || !previewReady) return;
+    if (video.seeking) { if (!seekTimer) guardSeek(); return; }
     if (opening) {
       if (!introStarted && video.readyState >= 2) {
         introStarted = true;
-        video.play().catch(() => { opening = false; schedule(); alignCandidate(); });
+        // Autoplay may be denied (including by iOS power-saving policies).
+        // Scrubbing must still work without a successful play() call.
+        introTimer = setTimeout(finishIntro, 2500);
+        video.play().catch(finishIntro);
       }
       if (!video.paused && video.currentTime < introEnd) {
         if (publishedFrame < 0 || !video.requestVideoFrameCallback) publish(video.currentTime);
@@ -311,8 +358,7 @@ export function createScrollFilm(canvas, ambient, motion, options) {
         return;
       }
       if (video.currentTime >= introEnd) {
-        opening = false;
-        video.pause();
+        finishIntro();
       } else return;
     }
 
@@ -322,7 +368,7 @@ export function createScrollFilm(canvas, ambient, motion, options) {
     const factor = motion.matches ? 1 : 1 - Math.exp(-elapsed / (settleTime * .46));
     position = Math.abs(delta) <= 1 / FRAME_RATE ? target : position + delta * factor;
     const time = Math.min(lastTime, Math.round(position * VIDEO_RATE) / VIDEO_RATE + .004);
-    if (Math.abs(video.currentTime - time) > .012) video.currentTime = time;
+    if (Math.abs(video.currentTime - time) > .012) seek(time);
     else if (video.readyState >= 2) publish(video.currentTime);
     if (position !== target && !video.seeking) schedule();
     if (position === target) previousTick = 0;
@@ -341,20 +387,39 @@ export function createScrollFilm(canvas, ambient, motion, options) {
 
   function attach(element) {
     watchFrame(element);
+    for (const event of ['loadeddata', 'canplay', 'seeked', 'timeupdate']) {
+      element.addEventListener(event, () => ready(element));
+    }
+    element.addEventListener('loadedmetadata', () => {
+      if (element !== video || fallback) return;
+      // If only metadata was preloaded, request an actual frame rather than
+      // relying exclusively on loadeddata being dispatched.
+      if (element.readyState < 2) seek(opening ? .004 : target);
+      ready(element);
+    });
     element.addEventListener('seeked', () => {
       if (element !== video || fallback) return;
+      clearTimeout(seekTimer);
+      seekTimer = undefined;
+      if (element.readyState < 2) { guardSeek(); return; }
       if (!opening) publish(element.currentTime);
       schedule();
       alignCandidate();
     });
     element.addEventListener('playing', () => { if (element === video) schedule(); });
+    for (const event of ['waiting', 'stalled']) {
+      element.addEventListener(event, () => {
+        if (element === video && previewReady && !fallback) guardSeek();
+      });
+    }
     element.addEventListener('error', () => { if (element === video) useSheets(); });
   }
 
   function alignCandidate() {
     if (!candidate || !candidate.ready || candidate.aligning || opening || video.seeking) return;
     candidate.aligning = true;
-    candidate.element.currentTime = Math.max(.004, video.currentTime);
+    try { candidate.element.currentTime = Math.max(.004, video.currentTime); }
+    catch { const element = candidate.element; candidate = undefined; releaseVideo(element); }
   }
 
   async function fetchWithRetry(source, priority, onBytes) {
@@ -374,6 +439,11 @@ export function createScrollFilm(canvas, ambient, motion, options) {
       const element = makeVideo('full');
       candidate = { element, ready: false, aligning: false };
       video.after(element);
+      element.addEventListener('loadedmetadata', () => {
+        if (candidate?.element !== element) return;
+        candidate.ready = true;
+        alignCandidate();
+      }, { once: true });
       element.addEventListener('loadeddata', () => {
         if (candidate?.element !== element) return;
         candidate.ready = true;
@@ -382,7 +452,7 @@ export function createScrollFilm(canvas, ambient, motion, options) {
       element.addEventListener('seeked', () => {
         if (candidate?.element !== element) return;
         candidate.aligning = false;
-        if (opening || video.seeking) return;
+        if (opening || video.seeking || element.readyState < 2 || !element.videoWidth) return;
         if (Math.abs(element.currentTime - video.currentTime) > .012) {
           alignCandidate();
           return;
@@ -413,6 +483,10 @@ export function createScrollFilm(canvas, ambient, motion, options) {
 
   function useSheets() {
     if (fallback) return;
+    clearTimeout(decodeTimer);
+    clearTimeout(seekTimer);
+    clearTimeout(introTimer);
+    cancelAnimationFrame(queued);
     removeLoading();
     backdrop.drawPoster();
     fallback = createSheetFilm(canvas, motion, options, backdrop);
@@ -425,19 +499,24 @@ export function createScrollFilm(canvas, ambient, motion, options) {
   }
 
   attach(video);
-  video.addEventListener('loadeddata', () => {
-    if (previewReady || fallback) return;
-    previewReady = true;
-    removeLoading();
-    onReady?.();
-    schedule();
-  });
   fetchWithRetry(previewSource, startActive ? 'high' : 'auto', fraction => { progressBar.value = fraction; })
-    .then(blob => { if (!download.signal.aborted && !fallback) assignBlob(video, blob); })
+    .then(blob => {
+      if (download.signal.aborted || fallback) return;
+      // A downloaded file is not necessarily a decoded frame. Never leave the
+      // poster (and a completed loading bar) indefinitely if native decode stalls.
+      decodeTimer = setTimeout(() => {
+        ready(video);
+        if (!previewReady) useSheets();
+      }, 4500);
+      assignBlob(video, blob);
+    })
     .catch(error => { if (error.name !== 'AbortError') useSheets(); });
 
   addEventListener('pagehide', event => {
     if (event.persisted) return;
+    clearTimeout(decodeTimer);
+    clearTimeout(seekTimer);
+    clearTimeout(introTimer);
     download.abort();
     for (const url of objectUrls.values()) URL.revokeObjectURL(url);
     objectUrls.clear();
@@ -466,16 +545,19 @@ export function createScrollFilm(canvas, ambient, motion, options) {
       delete canvas.dataset.frame;
       target = position = firstTime;
       video.pause();
-      if (previewReady) video.currentTime = opening ? 0 : target;
+      clearTimeout(introTimer);
+      if (previewReady) seek(opening ? 0 : target);
       schedule();
     },
     setActive(value) {
       if (active === value) return;
       active = value;
       if (fallback) return fallback.setActive(value);
-      if (active || endPending) schedule();
+      if (active || endPending) { if (video.seeking) guardSeek(); schedule(); }
       else {
         video.pause();
+        clearTimeout(seekTimer);
+        seekTimer = undefined;
         cancelAnimationFrame(queued);
         queued = previousTick = 0;
       }
@@ -487,6 +569,7 @@ export function createScrollFilm(canvas, ambient, motion, options) {
       if (opening && (introSkipped || motion.matches)) {
         opening = false;
         video.pause();
+        clearTimeout(introTimer);
       }
       endPending = Boolean(openingFrame && immediate && progress === 1 && publishedFrame !== frameCount - 1);
       const time = toTime(firstFrame + progress * (frameCount - 1 - firstFrame));
