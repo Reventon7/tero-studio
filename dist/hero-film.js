@@ -8,15 +8,15 @@ const POSITION_EPSILON = .15;
 const VELOCITY_EPSILON = .002;
 const sheetAt = frame => Math.floor(Math.round(frame) / FRAMES_PER_SHEET);
 
-function createFilmBackdrop(ambient, ambientMedia = '(max-aspect-ratio: 8/5), (min-aspect-ratio: 21/9)', ambientStrip) {
+export function createFilmBackdrop(ambient, ambientMedia = '(max-aspect-ratio: 8/5), (min-aspect-ratio: 21/9)', ambientStrip) {
   const ambientLayout = matchMedia(ambientMedia);
   const stripLayout = ambientStrip && matchMedia(ambientStrip.media);
   const stripWidth = 960;
   const stripHeight = 540;
-  const poster = ambientStrip && ambient.parentElement.querySelector('img');
+  const poster = ambient.parentElement.querySelector('img');
   const sampleColumns = 12;
   const sampleRows = 36;
-  const sample = poster && document.createElement('canvas');
+  const sample = ambientStrip && poster && document.createElement('canvas');
   if (sample) { sample.width = sampleColumns; sample.height = sampleRows; }
   const sampleContext = sample?.getContext('2d', { alpha: false, willReadFrequently: true });
   let posterTexture, posterLight, tintedTexture;
@@ -99,7 +99,13 @@ function createFilmBackdrop(ambient, ambientMedia = '(max-aspect-ratio: 8/5), (m
   }
 
   function drawPoster() {
-    if (!ambientContext || !stripLayout?.matches || !poster.naturalWidth) return;
+    if (!ambientContext || !poster?.naturalWidth || !ambientLayout.matches) return;
+    // The blurred mobile backdrop must also fill the large viewport before playback.
+    if (!stripLayout?.matches) {
+      drawAmbient(poster, 0, 0, poster.naturalWidth, poster.naturalHeight);
+      ambient.classList.add('ready');
+      return;
+    }
     if (posterTexture) {
       ambientContext.putImageData(posterTexture, 0, 0);
     } else {
@@ -143,7 +149,7 @@ function createFilmBackdrop(ambient, ambientMedia = '(max-aspect-ratio: 8/5), (m
     if (poster.complete && poster.naturalWidth) drawPoster();
     else poster.decode().then(() => { drawPoster(); layoutChanged?.(); }, () => {});
   }
-  ambientLayout.addEventListener('change', () => layoutChanged?.());
+  ambientLayout.addEventListener('change', () => { drawPoster(); layoutChanged?.(); });
   stripLayout?.addEventListener('change', () => {
     sizeCanvas();
     drawPoster();
@@ -187,7 +193,7 @@ export function createScrollFilm(canvas, ambient, motion, options) {
   }
 
   let video = makeVideo('preview');
-  const backdrop = createFilmBackdrop(ambient, ambientMedia, ambientStrip);
+  const backdrop = options.backdrop ?? createFilmBackdrop(ambient, ambientMedia, ambientStrip);
   if (!previewSource || !video.canPlayType('video/mp4; codecs="avc1.640028"')) {
     const sheets = createSheetFilm(canvas, motion, options, backdrop);
     sheets.setActive(startActive);

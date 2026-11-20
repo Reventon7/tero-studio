@@ -1,4 +1,4 @@
-import {createScrollFilm} from './hero-film.js';
+import {createScrollFilm, createFilmBackdrop} from './hero-film.js';
 import {prefetchCatalog} from './navigation.js';
 import './product-dialog.js';
 import {loadLens, loadLighting} from './bundles/entries.js';
@@ -138,6 +138,9 @@ function animateChapters(group) {
 }
 
 const updateHeroCopy = animateChapters(heroPanel.querySelector('.film-chapters'));
+// Paint the dentist poster extension immediately, without starting its film download.
+const dentistBackdrop = createFilmBackdrop($('#dentist-ambient'),
+  '(max-width: 1100px), (max-aspect-ratio: 8/5), (min-aspect-ratio: 21/9), (max-width: 1279px) and (max-height: 520px)');
 
 const heroFilm = createScrollFilm($('#hero-film'), $('#hero-ambient'), motion, {
   preview: { desktop: 'scrub-540-preview-v1.mp4' },
@@ -169,6 +172,7 @@ const updateDentistCopy = animateChapters(dentistChapters);
 
 function prepareDentist() {
   dentistFilm ??= createScrollFilm($('#dentist-film'), $('#dentist-ambient'), motion, {
+    backdrop: dentistBackdrop,
     preview: { desktop: 'scrub-540-preview-v1.mp4' },
     media: { desktop: 'scrub-720-v4.mp4', mobile: 'scrub-540-v4.mp4' },
     directory: 'dentist-final-48', frameCount: dentistFrameCount, startFrame: dentistStartFrame, widths: [1152, 768],
@@ -230,6 +234,7 @@ function scrollState() {
 
   header.classList.toggle('scrolled', y > 60);
   header.classList.toggle('over-film', overFilm);
+  document.documentElement.classList.toggle('past-film', !overFilm);
   header.classList.toggle('over-dentist', overFilm && blend >= 1);
   header.classList.toggle('light-header', lightSurface);
   if (previousBlend !== blend) {
