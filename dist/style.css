@@ -27,7 +27,29 @@
 @media(prefers-reduced-motion:reduce){.human-story{height:140svh}}
 
 /* Keep the film behind the navigation and fill the pinned viewport. */
+html { background: #111719; }
+body { min-height: 100vh; min-height: 100dvh; }
+.ui-icon {
+  display: block;
+  width: 20px; height: 20px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.35;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.dialog-top button {
+  display: grid; place-items: center;
+  width: 44px; height: 44px;
+  min-width: 44px; min-height: 44px;
+  padding: 0; line-height: 1; flex: 0 0 auto;
+}
+.dialog-top button .ui-icon { width: 24px; height: 24px; }
 .film-stage {
+  /* Follow Safari's visible viewport as its browser toolbar opens and closes. */
+  height: 100vh;
+  height: 100dvh;
   min-height: 0;
   background: #0b100f;
 }
@@ -154,7 +176,8 @@ html[data-contact-entry] .site-header .brand img {
 .film-experience > .film-stage { z-index: 1; }
 .film-stage { background: #080a0a; }
 .film-experience > .film-track { background: transparent; pointer-events: none; }
-.film-experience > .film-stage + .film-track { margin-top: -100svh; }
+/* Cancel the same live height so the scroll tracks still start at zero. */
+.film-experience > .film-stage + .film-track { margin-top: -100vh; margin-top: -100dvh; }
 .film-panel { position: absolute; inset: 0; background: #0b100f; }
 .film-panel--dentist { visibility: hidden; overflow: hidden; }
 .film-download {

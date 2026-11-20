@@ -90,8 +90,10 @@ function breadcrumb(title, parent) {
 }
 
 function action(label, url = '/#contact') {
-  return `<a class="catalog-action" href="${url}">${escape(label)} <span aria-hidden="true">↗</span></a>`;
+  return `<a class="catalog-action" href="${url}">${escape(label)} ${arrowIcon}</a>`;
 }
+
+const arrowIcon = '<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 17 17 7M7 7h10v10"/></svg>';
 
 function facts(entries) {
   return `<dl class="catalog-facts">${entries.map(([key, value]) => `<div><dt>${escape(key)}</dt><dd>${escape(value)}</dd></div>`).join('')}</dl>`;
@@ -117,7 +119,7 @@ function cards(products, route, compact = false) {
     <a class="catalog-card" href="${route}/${product.slug}">
       <div class="catalog-media">${photo(product.image, '', true)}</div>
       <div class="catalog-card-body">
-        <h2 class="catalog-card-title">${escape(product.name)} <span aria-hidden="true">↗</span></h2>
+        <h2 class="catalog-card-title">${escape(product.name)} ${arrowIcon}</h2>
         <p>${escape(product.summary)}</p>
         ${product.powers ? `<div class="catalog-powers">${powersLabel(product.powers)}</div>` : ''}
       </div>
