@@ -226,7 +226,6 @@ await page('/ergonomics', 'Ergonomics', 'How working distance, viewing angle and
       <article><h3>Viewing angle</h3><p>Try the optics in your usual seated position. The angle of the view affects how far you need to tilt your head to see the working area.</p></article>
       <article><h3>Field of view</h3><p>Compare how much of the working area you can see at each magnification. Choose a view that suits the procedures you do most often.</p></article>
     </div>
-    ${action('Explore ergonomic loupes', '/loupes/ergo-hd')}
   </section>`);
 
 await page('/about', 'About us', 'TERO designs optics, lighting and seating around the way clinicians work.', `

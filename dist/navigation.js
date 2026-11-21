@@ -2,6 +2,19 @@ const menu = document.querySelector('#mobile-menu');
 const menuToggle = document.querySelector('.menu-toggle');
 let prefetchStarted = false;
 
+// Dialog autofocus is focus-visible on WebKit even after a touch. Keep rings
+// for keyboard navigation without leaving a selection box after taps/clicks.
+document.documentElement.dataset.inputMethod = 'pointer';
+addEventListener('pointerdown', () => {
+  document.documentElement.dataset.inputMethod = 'pointer';
+}, { capture: true, passive: true });
+addEventListener('keydown', event => {
+  if (!event.metaKey && !event.ctrlKey && !event.altKey &&
+      !['Shift', 'Control', 'Alt', 'Meta'].includes(event.key)) {
+    document.documentElement.dataset.inputMethod = 'keyboard';
+  }
+}, { capture: true });
+
 export function prefetchCatalog() {
   if (prefetchStarted || navigator.connection?.saveData) return;
   prefetchStarted = true;
@@ -29,7 +42,17 @@ menuToggle.addEventListener('click', () => {
   document.body.style.overflow = 'hidden';
 });
 menu.querySelector('[data-close]').addEventListener('click', () => menu.close());
-menu.querySelectorAll('nav a').forEach(link => link.addEventListener('click', () => menu.close()));
+menu.querySelectorAll('nav a').forEach(link => link.addEventListener('click', event => {
+  // Keep the dialog covering the old page until the new document replaces it.
+  // Closing first flashes the underlying hero during cross-page navigation.
+  const destination = new URL(link.href, location.href);
+  const leavesPage = destination.origin !== location.origin || destination.pathname !== location.pathname;
+  const primary = event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
+  if (!primary || !leavesPage) menu.close();
+}));
+addEventListener('pageshow', event => {
+  if (event.persisted && menu.open) menu.close();
+});
 menu.addEventListener('close', () => {
   menuToggle.setAttribute('aria-expanded', 'false');
   document.body.style.overflow = '';
