@@ -1,4 +1,4 @@
-import {prefetchCatalog} from './navigation.js';
+import {prefetchCatalog} from './navigation.js?v=20261121';
 import './product-dialog.js';
 
 addEventListener('load', prefetchCatalog, { once: true });

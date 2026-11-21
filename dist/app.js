@@ -1,5 +1,5 @@
 import {createScrollFilm, createFilmBackdrop} from './hero-film.js';
-import {prefetchCatalog} from './navigation.js';
+import {prefetchCatalog} from './navigation.js?v=20261121';
 import './product-dialog.js';
 import {loadLens, loadLighting} from './bundles/entries.js';
 
