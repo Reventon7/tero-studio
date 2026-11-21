@@ -32,6 +32,12 @@ export async function createProductScene(container, {reducedMotion=false,onReady
  product.traverse(o=>{if(o.name.startsWith('heroHousingPrint')&&o.material?.map){o.material=o.material.clone();o.material.map=o.material.map.clone();o.material.map.repeat.set(1,-1);o.material.map.offset.set(0,1);o.material.map.needsUpdate=true}});
  const lamp=product.getObjectByName('Light');
 
+ // The cable and its strain relief leave together; the housing stays intact.
+ const wiring=['lampCable','lampBoot'].map(name=>product.getObjectByName(name)).filter(Boolean).map(mesh=>{
+  mesh.material=mesh.material.clone();mesh.material.transparent=true;mesh.material.depthWrite=false;
+  return {mesh,position:mesh.position.clone(),opacity:mesh.material.opacity,lift:mesh.name==='lampCable'?1.25:.36};
+ });
+
  const filter=product.getObjectByName('lampFilter');
  const filterClosed=filter.quaternion.clone();
  const filterAxis=new THREE.Vector3(0,0,1),filterRotation=new THREE.Quaternion();
@@ -45,7 +51,7 @@ export async function createProductScene(container, {reducedMotion=false,onReady
  const white=new THREE.Color(0xf2f6ff),warm=new THREE.Color(0xffad55);
  product.position.set(0,-.78,-.1);model.scale.setScalar(3.15);
  const motionReduced=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
- const state={paused:reducedMotion,filter:0,rotationX:0,rotationY:0};
+ const state={paused:reducedMotion,phase:0,rotationX:0,rotationY:0};
  let disposed=false,drag=null,rx=0,ry=0,first=true;
  const timer=new THREE.Timer();timer.connect(document);
  function resize(){const w=container.clientWidth,h=container.clientHeight;if(!w||!h)return;renderer.setSize(w,h);camera.aspect=w/h;camera.position.z=w/h<1.15?16:12.6;camera.updateProjectionMatrix()}
@@ -70,20 +76,28 @@ export async function createProductScene(container, {reducedMotion=false,onReady
   rx+=(state.rotationX-rx)*damp;ry+=(state.rotationY-ry)*damp;
   model.rotation.set(.12+rx,-.6+ry,-.12);
   model.position.set(-.35,-.08+(state.paused||reducedMotion?0:Math.sin(t*.65)*.055),0);
-  const filterProgress=state.filter;
+  const filterProgress=THREE.MathUtils.clamp(state.phase,0,1);
+  const wireless=THREE.MathUtils.clamp(state.phase-1,0,1);
+  for(const {mesh,position,opacity,lift} of wiring){
+   mesh.position.copy(position);mesh.position.y+=lift*wireless;
+   mesh.material.opacity=opacity*(1-THREE.MathUtils.smoothstep(wireless,.22,.94));
+   mesh.visible=wireless<.999;
+  }
   filter.quaternion.copy(filterClosed).multiply(filterRotation.setFromAxisAngle(filterAxis,-2.95*(1-filterProgress)));
   const warmth=THREE.MathUtils.smoothstep(filterProgress,.72,.98);
   beamMaterial.uniforms.beamColor.value.copy(white).lerp(warm,warmth);emitter.material.color.copy(white).lerp(warm,warmth);
   container.dataset.filter=filterProgress>.98?'amber':filterProgress<.02?'white':'moving';
+  container.dataset.connection=wireless>.999?'wireless':wireless<.001?'wired':'moving';
   renderer.render(scene,camera);
   if(first){first=false;container.classList.add('ready');onReady()}
  }
- return {state,reset,setFilter(progress, { immediate = false } = {}) {
+ return {state,reset,setPhase(progress, { immediate = false } = {}) {
+  progress=THREE.MathUtils.clamp(progress,0,2);
   if (!immediate && window.gsap && !motionReduced()) {
-   gsap.to(state, { filter: progress, duration: 1.15, ease: 'power2.inOut', overwrite: 'auto' });
+   gsap.to(state, { phase: progress, duration: Math.abs(progress-state.phase)>1?1.8:1.15, ease: 'power2.inOut', overwrite: 'auto' });
   } else {
-   window.gsap?.killTweensOf(state, 'filter');
-   state.filter = progress;
+   window.gsap?.killTweensOf(state, 'phase');
+   state.phase = progress;
   }
  },dispose(){disposed=true;window.gsap?.killTweensOf(state);renderer.setAnimationLoop(null);resizer.disconnect();observer.disconnect();timer.dispose();canvas.removeEventListener('pointerdown',down);canvas.removeEventListener('pointermove',move);canvas.removeEventListener('pointerup',up);canvas.removeEventListener('pointercancel',up);canvas.removeEventListener('keydown',keyboard);canvas.removeEventListener('webglcontextlost',lost);canvas.removeEventListener('webglcontextrestored',restored);const geometries=new Set(),materials=new Set(),textures=new Set();model.traverse(o=>{if(o.geometry)geometries.add(o.geometry);if(o.material)materials.add(o.material)});materials.forEach(m=>{Object.values(m).forEach(v=>{if(v?.isTexture)textures.add(v)});m.dispose()});textures.forEach(t=>t.dispose());geometries.forEach(g=>g.dispose());environment.dispose();renderer.dispose();canvas.remove()}};
 }

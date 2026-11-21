@@ -139,7 +139,7 @@ async function page(route, title, description, content, interactive = false) {
   <meta name="description" content="${escape(description)}">
   <link rel="icon" href="/assets/favicon-v1.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/fonts/fonts.css">
-  <link rel="stylesheet" href="/style.css?v=20261121">
+  <link rel="stylesheet" href="/style.css?v=20261121-light">
   ${interactive ? '<link rel="stylesheet" href="/lens.css">' : ''}
   <link rel="stylesheet" href="/catalog.css">
   ${route === '/about' ? '<script defer src="/vendor/gsap.min.js"></script><script defer src="/vendor/ScrollTrigger.min.js"></script>' : ''}

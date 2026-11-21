@@ -69,22 +69,29 @@ const lightingTrack = $('#lighting');
 const lightingSection = lightingTrack.firstElementChild;
 const lightToggle = $('#light-toggle');
 let lightingScene;
-let filterActive = false;
-let manualFilter = false;
-let filterProgress = 0;
+let lightStep = 0;
+let manualLight = false;
+let lightProgress = 0;
 let lightPinTop = 76;
 
-function updateFilterLabel(active) {
-  filterActive = active;
-  lightToggle.setAttribute('aria-pressed', String(active));
-  lightingTrack.classList.toggle('amber-mode', active);
-  $('#filter-action').textContent = active ? 'Raise the amber filter' : 'Lower the amber filter';
+function updateLightLabel(step) {
+  lightStep = step;
+  const names = ['white', 'amber', 'wireless'];
+  const states = ['Wired light, white beam', 'Wired light, amber filter closed', 'Wireless view, amber filter closed'];
+  const actions = ['Lower the amber filter', 'Switch to wireless', 'Return to wired light'];
+  lightToggle.removeAttribute('aria-pressed');
+  lightToggle.dataset.lightState = names[step];
+  lightToggle.setAttribute('aria-label', `${states[step]}. ${actions[step]}`);
+  lightingTrack.classList.toggle('amber-mode', step > 0);
+  $('#filter-action').textContent = actions[step];
 }
+updateLightLabel(0);
 
 lightToggle.addEventListener('click', () => {
-  manualFilter = true;
-  updateFilterLabel(!filterActive);
-  lightingScene?.setFilter(Number(filterActive));
+  manualLight = true;
+  lightProgress = (lightStep + 1) % 3;
+  updateLightLabel(lightProgress);
+  lightingScene?.setPhase(lightProgress);
 });
 
 
@@ -202,13 +209,17 @@ function updateFilmHandoff(blend) {
 
 function scrubLightFilter(trackTop, travel) {
   if (motion.matches || !travel || lightToggle.disabled) return;
-  if (manualFilter && trackTop < innerHeight) return;
-  const progress = easeProgress(((lightPinTop - trackTop) / travel - .08) / .80);
-  if (!manualFilter && progress === filterProgress) return;
-  manualFilter = false;
-  filterProgress = progress;
-  lightingScene?.setFilter(progress, { immediate: true });
-  if (filterActive !== (progress >= 1)) updateFilterLabel(progress >= 1);
+  if (manualLight && trackTop < innerHeight) return;
+  const position = clampProgress((lightPinTop - trackTop) / travel);
+  // Retain the original cover-closing distance, then hold before cable removal.
+  const progress = position < .5 ? easeProgress((position - .04) / .40)
+    : 1 + easeProgress((position - .54) / .40);
+  if (!manualLight && progress === lightProgress) return;
+  manualLight = false;
+  lightProgress = progress;
+  lightingScene?.setPhase(progress, { immediate: true });
+  const step = progress >= 2 ? 2 : progress >= 1 ? 1 : 0;
+  if (lightStep !== step) updateLightLabel(step);
 }
 
 let scrollPending = false;
@@ -341,7 +352,7 @@ const lightObserver = new IntersectionObserver(async entries => {
     if (leavingPage) return;
     lightingScene = await createProductScene(lightScene, { reducedMotion: motion.matches, modelBytes });
     if (leavingPage) { lightingScene.dispose(); return; }
-    lightingScene.setFilter(manualFilter ? Number(filterActive) : filterProgress, { immediate: true });
+    lightingScene.setPhase(lightProgress, { immediate: true });
   } catch (error) {
     console.error('TERO headlight unavailable:', error);
     lightScene.classList.add('fallback-only');
@@ -353,9 +364,9 @@ const lightObserver = new IntersectionObserver(async entries => {
 lightObserver.observe(lightingTrack);
 motion.addEventListener('change', () => {
   previousBlend = undefined;
-  if (motion.matches && !manualFilter) {
-    filterProgress = Number(filterActive);
-    lightingScene?.setFilter(filterProgress, { immediate: true });
+  if (motion.matches && !manualLight) {
+    lightProgress = lightStep;
+    lightingScene?.setPhase(lightProgress, { immediate: true });
   }
   if (lightingScene) lightingScene.state.paused = motion.matches;
   measureScroll();

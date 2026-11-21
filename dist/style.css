@@ -299,7 +299,7 @@ html[data-contact-entry] .site-header {
   #contact-form { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: no-preference) {
-  .lighting-track::after { content: ''; display: block; height: clamp(550px, 95svh, 900px); }
+  .lighting-track::after { content: ''; display: block; height: clamp(1100px, 190svh, 1800px); }
   .lighting-track > .lighting {
     position: sticky;
     top: var(--light-pin-top, 76px);
@@ -669,3 +669,11 @@ html[data-input-method="pointer"] :is(a, button, summary, [tabindex]):focus {
   outline: none;
 }
 .light-copy > .collection-link { color: #f7f8f2; }
+
+.light-toggle .switch { width: 58px; flex-shrink: 0; }
+.light-toggle[data-light-state="white"] .switch { background: #39434a; }
+.light-toggle[data-light-state="white"] .switch i { transform: translateX(0); }
+.light-toggle[data-light-state="amber"] .switch { background: #eeb072; }
+.light-toggle[data-light-state="amber"] .switch i { transform: translateX(18px); }
+.light-toggle[data-light-state="wireless"] .switch { background: var(--acid); }
+.light-toggle[data-light-state="wireless"] .switch i { transform: translateX(36px); }
